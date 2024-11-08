@@ -1,0 +1,194 @@
+/* Main container styling */
+.calendar-container {
+  max-width: 800px;
+  margin: auto;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  background-color: #f9f9f9;
+  font-family: Arial, sans-serif;
+  text-align: center; /* Center the entire container */
+}
+
+.calendar-container h1 {
+  color: #333;
+  font-size: 24px;
+  font-weight: bold;
+  margin-bottom: 20px;
+}
+
+/* Center the calendar */
+.react-calendar {
+  margin: auto;
+  border: none;
+  background-color: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.react-calendar__tile {
+  border-radius: 8px;
+  transition: background-color 0.3s, color 0.3s;
+}
+
+.react-calendar__tile--now {
+  background-color: #e0f7fa;
+  color: #00796b;
+}
+
+.react-calendar__tile--active,
+.react-calendar__tile:hover {
+  background-color: #00796b;
+  color: #fff;
+}
+
+.react-calendar__tile--hasData {
+  background-color: #80deea;
+}
+
+/* Popup styling */
+.popup {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 90%;
+  max-width: 450px; /* Reduced max-width */
+  background-color: #ffffff;
+  padding: 15px;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+  overflow-y: auto;
+}
+
+.popup h2 {
+  color: #333;
+  font-size: 18px;
+  margin-bottom: 15px;
+}
+
+/* Style each label-input pair inline */
+.popup label {
+  font-weight: bold;
+  color: #333;
+  margin-right: 8px;
+}
+
+.popup div {
+  display: flex;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.popup input[type="time"],
+.popup input[type="checkbox"],
+.popup textarea {
+  width: auto;
+  padding: 4px 8px;
+  margin-left: 8px;
+  font-size: 12px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  font-size: 14px;
+}
+
+.popup textarea {
+  height: 60px;
+  resize: none;
+  margin-left: 8px;
+}
+
+.popup .popup-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 15px;
+}
+
+.popup button {
+  padding: 6px 14px;
+  font-size: 14px;
+  color: #fff;
+  background-color: #00796b;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  margin-right: 8px;
+}
+
+.popup button:hover {
+  background-color: #004d40;
+}
+
+.popup .close-button {
+  background-color: #d32f2f;
+}
+
+.popup .close-button:hover {
+  background-color: #c62828;
+}
+
+/* Default times section */
+.default-times {
+  margin-top: 20px;
+  background-color: #e3f2fd;
+  padding: 15px;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.default-times h2 {
+  color: #333;
+  font-size: 18px;
+  margin-bottom: 15px;
+}
+
+/* Style label-input pairs inline */
+.default-times div {
+  display: flex;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.default-times label {
+  font-weight: bold;
+  color: #333;
+  margin-right: 8px;
+}
+
+.default-times input[type="time"] {
+  width: auto;
+  padding: 4px 8px;
+  font-size: 12px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+}
+
+/* Buttons for saving data */
+.save-button,
+.default-hours-button {
+  display: inline-block;
+  margin-top: 15px;
+  padding: 6px 14px;
+  font-size: 14px;
+  color: #fff;
+  background-color: #00796b;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  margin-right: 8px;
+}
+
+.save-button:hover,
+.default-hours-button:hover {
+  background-color: #004d40;
+}
+
+.error-message {
+  color: #d32f2f;
+  font-size: 16px;
+  text-align: center;
+  margin-top: 10px;
+}
