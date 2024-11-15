@@ -34,13 +34,22 @@ const CalendarComponent = ({ userEmail }) => {
 
     const fetchDailyPresence = async () => {
       try {
-        const month = date.toISOString().slice(0, 7);
-        const response = await axios.get(`http://localhost:8000/daily-presence/${userId}/${month}`);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const response = await axios.get(`http://localhost:8000/employee-presence/${userId}/${year}/${month}`);
         setDailyPresence(response.data);
+    
+        // Initialize monthlyPresenceData with fetched dailyPresence
+        const fetchedData = response.data.reduce((acc, dayData) => {
+          acc[dayData.date] = dayData;
+          return acc;
+        }, {});
+        setMonthlyPresenceData(fetchedData);
       } catch (error) {
         console.warn("No presence data found for this month.");
       }
     };
+    
 
     fetchDefaultTimes();
     fetchDailyPresence();
@@ -48,7 +57,7 @@ const CalendarComponent = ({ userEmail }) => {
 
   const openPopup = (day) => {
     console.log("Selected day:", day);
-    const dayString = day.toISOString().split('T')[0];
+    const dayString = day.toLocaleDateString('en-CA');
     const isWeekend = [0, 6].includes(day.getDay());
 
     const presence = monthlyPresenceData[dayString] || dailyPresence.find(p => p.date === dayString) || {
@@ -70,43 +79,55 @@ const CalendarComponent = ({ userEmail }) => {
   };
 
   const closePopup = () => {
+    if (selectedDay) {
+      const dayString = selectedDay.toLocaleDateString('en-CA');
+      setMonthlyPresenceData(prevData => ({
+        ...prevData,
+        [dayString]: {
+          ...prevData[dayString],
+          ...monthlyPresenceData[dayString], // Merge any updated data
+        },
+      }));
+    }
     setShowPopup(false);
     setSelectedDay(null);
   };
 
   const handlePresenceChange = (field, value) => {
-    const dayString = selectedDay.toISOString().split('T')[0];
-    setMonthlyPresenceData(prevData => ({
-      ...prevData,
-      [dayString]: {
-        ...prevData[dayString],
-        [field]: value,
-      }
-    }));
+    if (selectedDay) {
+      const dayString = selectedDay.toLocaleDateString('en-CA');
+      setMonthlyPresenceData(prevData => ({
+        ...prevData,
+        [dayString]: {
+          ...prevData[dayString],
+          [field]: value,
+        },
+      }));
+    }
   };
+  
 
   const isDataChanged = () => {
-    return dailyPresence.some(dayData => {
-      const dayString = dayData.date;
-      const savedData = monthlyPresenceData[dayString];
+    return Object.keys(monthlyPresenceData).some(dayString => {
+      const savedData = dailyPresence.find(p => p.date === dayString);
+      const currentData = monthlyPresenceData[dayString];
   
-      if (!savedData) return false;
-  
-      // Compare relevant fields for changes
+      if (!savedData) return true; // New data added
       return (
-        savedData.entry_time_morning !== dayData.entry_time_morning ||
-        savedData.exit_time_morning !== dayData.exit_time_morning ||
-        savedData.entry_time_afternoon !== dayData.entry_time_afternoon ||
-        savedData.exit_time_afternoon !== dayData.exit_time_afternoon ||
-        savedData.national_holiday !== dayData.national_holiday ||
-        savedData.weekend !== dayData.weekend ||
-        savedData.day_off !== dayData.day_off ||
-        savedData.time_off !== dayData.time_off ||
-        savedData.extra_hours !== dayData.extra_hours ||
-        savedData.notes !== dayData.notes
+        savedData.entry_time_morning !== currentData.entry_time_morning ||
+        savedData.exit_time_morning !== currentData.exit_time_morning ||
+        savedData.entry_time_afternoon !== currentData.entry_time_afternoon ||
+        savedData.exit_time_afternoon !== currentData.exit_time_afternoon ||
+        savedData.national_holiday !== currentData.national_holiday ||
+        savedData.weekend !== currentData.weekend ||
+        savedData.day_off !== currentData.day_off ||
+        savedData.time_off !== currentData.time_off ||
+        savedData.extra_hours !== currentData.extra_hours ||
+        savedData.notes !== currentData.notes
       );
     });
   };
+  
   
 
   const handleSaveMonthlyPresence = async () => {
@@ -118,7 +139,7 @@ const CalendarComponent = ({ userEmail }) => {
 
     const allDaysOfMonth = Array.from({ length: daysInMonth }, (_, i) => {
       const day = new Date(year, month, i + 2);
-      return day.toISOString().split('T')[0];});
+      return day.toLocaleDateString('en-CA');});
       
     if (!dataHasChanged) {
       const confirmSubmit = window.confirm(
@@ -198,7 +219,7 @@ const CalendarComponent = ({ userEmail }) => {
         onChange={setDate}
         value={date}
         tileContent={({ date }) => {
-          const dayString = date.toISOString().split('T')[0];
+          const dayString = date.toLocaleDateString('en-CA');
           const hasCustomData = !!monthlyPresenceData[dayString];
           return (
             <div onClick={() => openPopup(date)} style={{width: '100%',
@@ -222,7 +243,7 @@ const CalendarComponent = ({ userEmail }) => {
             <label>Morning Entry:</label>
             <input
               type="time"
-              value={monthlyPresenceData[selectedDay.toISOString().split('T')[0]]?.entry_time_morning || ''}
+              value={monthlyPresenceData[selectedDay.toLocaleDateString('en-CA')]?.entry_time_morning || ''}
               onChange={(e) => handlePresenceChange('entry_time_morning', e.target.value)}
             />
           </div>
@@ -230,7 +251,7 @@ const CalendarComponent = ({ userEmail }) => {
             <label>Morning Exit:</label>
             <input
               type="time"
-              value={monthlyPresenceData[selectedDay.toISOString().split('T')[0]]?.exit_time_morning || ''}
+              value={monthlyPresenceData[selectedDay.toLocaleDateString('en-CA')]?.exit_time_morning || ''}
               onChange={(e) => handlePresenceChange('exit_time_morning', e.target.value)}
             />
           </div>
@@ -238,7 +259,7 @@ const CalendarComponent = ({ userEmail }) => {
             <label>Afternoon Entry:</label>
             <input
               type="time"
-              value={monthlyPresenceData[selectedDay.toISOString().split('T')[0]]?.entry_time_afternoon || ''}
+              value={monthlyPresenceData[selectedDay.toLocaleDateString('en-CA')]?.entry_time_afternoon || ''}
               onChange={(e) => handlePresenceChange('entry_time_afternoon', e.target.value)}
             />
           </div>
@@ -246,7 +267,7 @@ const CalendarComponent = ({ userEmail }) => {
             <label>Afternoon Exit:</label>
             <input
               type="time"
-              value={monthlyPresenceData[selectedDay.toISOString().split('T')[0]]?.exit_time_afternoon || ''}
+              value={monthlyPresenceData[selectedDay.toLocaleDateString('en-CA')]?.exit_time_afternoon || ''}
               onChange={(e) => handlePresenceChange('exit_time_afternoon', e.target.value)}
             />
           </div>
@@ -255,7 +276,7 @@ const CalendarComponent = ({ userEmail }) => {
             <label>National Holiday:</label>
             <input
               type="checkbox"
-              checked={monthlyPresenceData[selectedDay.toISOString().split('T')[0]]?.national_holiday || false}
+              checked={monthlyPresenceData[selectedDay.toLocaleDateString('en-CA')]?.national_holiday || false}
               onChange={(e) => handlePresenceChange('national_holiday', e.target.checked)}
             />
           </div>
@@ -263,7 +284,7 @@ const CalendarComponent = ({ userEmail }) => {
             <label>Weekend:</label>
             <input
               type="checkbox"
-              checked={monthlyPresenceData[selectedDay.toISOString().split('T')[0]]?.weekend || false}
+              checked={monthlyPresenceData[selectedDay.toLocaleDateString('en-CA')]?.weekend || false}
               onChange={(e) => handlePresenceChange('weekend', e.target.checked)}
             />
           </div>
@@ -271,7 +292,7 @@ const CalendarComponent = ({ userEmail }) => {
             <label>Day Off:</label>
             <input
               type="checkbox"
-              checked={monthlyPresenceData[selectedDay.toISOString().split('T')[0]]?.day_off || false}
+              checked={monthlyPresenceData[selectedDay.toLocaleDateString('en-CA')]?.day_off || false}
               onChange={(e) => handlePresenceChange('day_off', e.target.checked)}
             />
           </div>
@@ -279,7 +300,7 @@ const CalendarComponent = ({ userEmail }) => {
             <label>Time Off:</label>
             <input
               type="time"
-              value={monthlyPresenceData[selectedDay.toISOString().split('T')[0]]?.time_off || ''}
+              value={monthlyPresenceData[selectedDay.toLocaleDateString('en-CA')]?.time_off || ''}
               onChange={(e) => handlePresenceChange('time_off', e.target.value)}
             />
           </div>
@@ -287,14 +308,14 @@ const CalendarComponent = ({ userEmail }) => {
             <label>Extra hours:</label>
             <input
               type="time"
-              value={monthlyPresenceData[selectedDay.toISOString().split('T')[0]]?.extra_hours || ''}
+              value={monthlyPresenceData[selectedDay.toLocaleDateString('en-CA')]?.extra_hours || ''}
               onChange={(e) => handlePresenceChange('extra_hours', e.target.value)}
             />
           </div>
           <div>
             <label>Notes:</label>
             <textarea
-              value={monthlyPresenceData[selectedDay.toISOString().split('T')[0]]?.notes || ''}
+              value={monthlyPresenceData[selectedDay.toLocaleDateString('en-CA')]?.notes || ''}
               onChange={(e) => handlePresenceChange('notes', e.target.value)}
             />
           </div>

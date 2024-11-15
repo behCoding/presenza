@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, Path
 
 from backend.auth import get_password_hash, authenticate_user, \
     create_access_token, delete_user_from_db, get_current_user, update_user_db, get_all_users
@@ -13,8 +13,8 @@ from models import User
 from datetime import datetime, timedelta
 from typing import List
 from models import DailyPresence
-from serialization import  UserCreate, Token, UserUpdate, DailyPresenceBase, HoursDefaultBase
-from CRUD import get_daily_presences, get_user_default_hours, create_default_hours
+from serialization import UserCreate, Token, UserUpdate, DailyPresenceBase, HoursDefaultBase, UserBase, UserBaseID
+from CRUD import get_daily_presences, get_user_default_hours, create_default_hours, get_user_by_id
 
 app = FastAPI()
 
@@ -80,11 +80,22 @@ async def update_user(user: UserUpdate, db: Session = Depends(get_db), current_u
     return update_user_db(db=db, user=user)
 
 
-@app.get("/users", response_model=List[UserUpdate])
+@app.get("/users", response_model=List[UserBaseID])
 async def fetch_users(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Not authorized")
-    return get_all_users(db=db)
+    db_users = get_all_users(db=db)
+    return db_users
+
+
+@app.get("/users/{employeeId}", response_model=UserBase)
+async def fetch_user(db: Session = Depends(get_db),
+                     current_user: User = Depends(get_current_user),
+                     employeeId: int = Path(..., description="ID of the employee to retrieve")):
+
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized")
+    return get_user_by_id(db=db, user_id=employeeId)
 
 
 # Get Daily Presence records for a user in a specific month
@@ -168,11 +179,11 @@ def create_update_monthly_presence(
     return response_data
 
 
-@app.get("/daily-presence/{user_id}/{month}", response_model=List[DailyPresenceBase])
-def get_daily_presence(user_id: int, month: str, db: Session = Depends(get_db)):
+@app.get("/employee-presence/{user_id}/{year}/{month}", response_model=List[DailyPresenceBase])
+def get_daily_presence(user_id: int, month: str, year: str, db: Session = Depends(get_db)):
     try:
         # Parse the month string to a datetime object
-        month_start = datetime.strptime(month, "%Y-%m")
+        month_start = datetime.strptime(year+month, "%Y%m")
         month_end = datetime(month_start.year, month_start.month + 1, 1)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid month format. Use 'YYYY-MM'.")

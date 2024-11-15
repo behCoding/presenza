@@ -8,9 +8,6 @@ def get_user_by_username(db: Session, work_email: str):
     return db.query(User).filter(User.work_email == work_email).first()
 
 
-
-
-
 # Get Daily Presences for a specific user and month
 def get_daily_presences(db: Session, user_id: int, year: int, month: int):
     return db.query(DailyPresence).filter(
@@ -63,4 +60,9 @@ def get_user_default_hours(db: Session, user_id: int):
     default_hours = db.query(HoursDefault).filter(HoursDefault.user_id == user_id).first()
 
     return default_hours
+
+
+def get_user_by_id(db: Session, user_id: int):
+    employee = db.query(User).filter(User.id == user_id).first()
+    return employee
 

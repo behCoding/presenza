@@ -13,6 +13,9 @@ class UserBase(BaseModel):
     work_email: str
     role: str
 
+    class Config:
+        orm_mode = True
+
 
 class UserCreate(UserBase):
     password: str
@@ -67,8 +70,8 @@ class HoursDefaultBase(BaseModel):
         orm_mode = True
 
 
-class UserBaseID(BaseModel):
-    user_id: int
+class UserBaseID(UserBase):
+    id: int
 
     class Config:
         orm_mode = True
