@@ -1,8 +1,8 @@
 from fastapi import FastAPI, Query, Path
 
-from backend.auth import get_password_hash, authenticate_user, \
-    create_access_token, delete_user_from_db, get_current_user, update_user_db, get_all_users
-from backend.config import ACCESS_TOKEN_EXPIRE_MINUTES
+from auth import get_password_hash, authenticate_user, \
+    create_access_token, delete_user_from_db, get_current_user, update_user_db, get_all_users, get_all_employees
+from config import ACCESS_TOKEN_EXPIRE_MINUTES
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -10,7 +10,7 @@ from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 from database import get_db
 from models import User
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 from typing import List
 from models import DailyPresence
 from serialization import UserCreate, Token, UserUpdate, DailyPresenceBase, HoursDefaultBase, UserBase, UserBaseID
@@ -139,6 +139,11 @@ def create_update_monthly_presence(
             .filter(DailyPresence.employee_id == user_id, DailyPresence.date == day_data.date)
             .first()
         )
+        if day_data.day_off or day_data.national_holiday:  # day_data.weekend could be added if no one works at weekend
+            day_data.entry_time_morning = time(0, 0)
+            day_data.exit_time_morning = time(0, 0)
+            day_data.entry_time_afternoon = time(0, 0)
+            day_data.exit_time_afternoon = time(0, 0)
 
         if existing_record:
             # Update existing record
@@ -202,7 +207,59 @@ def get_daily_presence(user_id: int, month: str, year: str, db: Session = Depend
     return presence_data
 
 
-def calculate_hours(morning_in, morning_out, afternoon_in, afternoon_out):
+@app.get("/employee-total_presence/{user_id}/{year}/{month}", response_model=dict)
+def get_daily_presence(user_id: int, month: str, year: str, db: Session = Depends(get_db)):
+    try:
+        # Parse the month string to a datetime object
+        month_start = datetime.strptime(year+month, "%Y%m")
+        month_end = datetime(month_start.year, month_start.month + 1, 1)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid month format. Use 'YYYY-MM'.")
+
+    # Query for presence data within the specified month range
+    presence_data = (
+        db.query(DailyPresence)
+        .filter(
+            DailyPresence.employee_id == user_id,
+            DailyPresence.date >= month_start,
+            DailyPresence.date < month_end
+        )
+        .all()
+    )
+    overviewOfMonth = {'isSubmitted': False,
+                       'totalWorkedHoursInMonth': 0,
+                       'totalExtraHoursInMonth': 0,
+                       'totalOffHoursInMonth': 0,
+                       'totalOffDaysInMonth': 0}
+    if presence_data:
+        overviewOfMonth['isSubmitted'] = True
+
+        for day in presence_data:
+            workedHoursPerDay = calculate_hours_per_day(day.entry_time_morning,
+                                                        day.exit_time_morning,
+                                                        day.entry_time_afternoon,
+                                                        day.exit_time_afternoon)
+            overviewOfMonth['totalWorkedHoursInMonth'] += workedHoursPerDay
+            overviewOfMonth['totalExtraHoursInMonth'] += day.extra_hours
+            overviewOfMonth['totalOffHoursInMonth'] += day.time_off
+            overviewOfMonth['totalOffDaysInMonth'] += day.day_off
+
+    return overviewOfMonth
+
+
+@app.post("/send_email_to_missing", response_model=List[UserBase])
+def send_email(yearMonth: str,
+               text: str,
+               db: Session = Depends(get_db)):
+    senderEmail = ''
+    receiversEmail = []
+    allEmployees = get_all_employees(db)
+
+
+    pass
+
+    
+def calculate_hours_per_day(morning_in, morning_out, afternoon_in, afternoon_out):
     total_hours = 0.0
 
     if morning_in and morning_out:
