@@ -1,7 +1,11 @@
+import datetime
+import smtplib
+from email.mime.text import MIMEText
 
 from sqlalchemy.orm import Session
 from models import DailyPresence, User, HoursDefault
 from serialization import DailyPresenceBase, HoursDefaultBase
+from datetime import datetime
 
 
 def get_user_by_username(db: Session, work_email: str):
@@ -66,3 +70,34 @@ def get_user_by_id(db: Session, user_id: int):
     employee = db.query(User).filter(User.id == user_id).first()
     return employee
 
+
+def get_hour_minute(timeFormat: int) -> (int, int):
+    hoursPart = int(timeFormat) // 1
+    minutesPart = (int(timeFormat) % 1) * 60
+    return hoursPart, minutesPart
+
+
+def has_submitted_presence(employee_id: int, year: str, month: str, db: Session) -> bool:
+    presence = db.query(DailyPresence).filter_by(
+        employee_id=employee_id,
+        date=datetime.strptime(year+month, "%Y%m")
+    ).first()
+    return bool(presence)
+
+
+def send_email_to_employee(receiver_email: str, subject: str, body: str):
+    smtp_server = "smtps.aruba.it"
+    smtp_port = 465
+    smtp_user_sender = "b.rashedi@storelink.it"
+    smtp_sender_password = ""
+
+    try:
+        with smtplib.SMTP_SSL(smtp_server, smtp_port) as server:
+            server.login(smtp_user_sender, smtp_sender_password)
+            msg = MIMEText(body)
+            msg["Subject"] = subject
+            msg["From"] = smtp_user_sender
+            msg["To"] = receiver_email
+            server.sendmail(smtp_user_sender, receiver_email, msg.as_string())
+    except Exception as e:
+        print(f"Failed to send email to {receiver_email}: {e}")

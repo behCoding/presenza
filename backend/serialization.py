@@ -75,3 +75,11 @@ class UserBaseID(UserBase):
 
     class Config:
         orm_mode = True
+
+
+class EmailRequest(BaseModel):
+    yearMonth: str
+    text: str
+
+    class Config:
+        orm_mode = True

@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import Login from './components/Login';
 import Register from './components/Register';
 import CalendarComponent from './components/CalendarComponent';
+import AdminDashboard from './components/AdminDashboard'
 
 function App() {
   return (
@@ -12,6 +13,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/employee-dashboard" element={<CalendarComponent />} />
+          <Route path="/admin-dashboard" element={<AdminDashboard />} />
           <Route path="/" element={<Login />} />
         </Routes>
       </div>

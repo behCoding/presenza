@@ -3,6 +3,9 @@ import axios from 'axios';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import './CalendarComponent.css';
+import { useNavigate } from 'react-router-dom';
+import { jwtDecode } from 'jwt-decode';
+
 
 const CalendarComponent = ({ userEmail }) => {
   const [date, setDate] = useState(new Date());
@@ -17,10 +20,13 @@ const CalendarComponent = ({ userEmail }) => {
   const [showPopup, setShowPopup] = useState(false);
   const [selectedDay, setSelectedDay] = useState(null);
   const [error, setError] = useState('');
-  
+  const [isMonthChanged, setIsMonthChanged] = useState(true);
   const userId = localStorage.getItem('user_id');
+  const navigate = useNavigate(); 
 
   useEffect(() => {
+    if (!isMonthChanged) return;
+    
     const fetchDefaultTimes = async () => {
       try {
         const response = await axios.get('http://localhost:8000/get-default-hours', {
@@ -37,23 +43,88 @@ const CalendarComponent = ({ userEmail }) => {
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0');
         const response = await axios.get(`http://localhost:8000/employee-presence/${userId}/${year}/${month}`);
-        setDailyPresence(response.data);
+        const presenceData = response.data;
     
-        // Initialize monthlyPresenceData with fetched dailyPresence
-        const fetchedData = response.data.reduce((acc, dayData) => {
-          acc[dayData.date] = dayData;
-          return acc;
-        }, {});
-        setMonthlyPresenceData(fetchedData);
+        if (presenceData.length === 0) {
+          console.warn("No presence data found for this month. Using default hours.");
+          // Fill the month with default hours
+          const daysInMonth = new Date(year, date.getMonth() + 1, 0).getDate();
+          const defaultData = Array.from({ length: daysInMonth }, (_, dayIndex) => {
+            const dayDate = new Date(year, date.getMonth(), dayIndex + 1).toLocaleDateString('en-CA');
+            const isWeekend = [0, 6].includes(new Date(dayDate).getDay());
+            return {
+              date: dayDate,
+              ...defaultTimes,
+              national_holiday: false,
+              weekend: isWeekend,
+              day_off: false,
+              time_off: "00:00",
+              extra_hours: "00:00",
+              notes: "",
+            };
+          });
+    
+          setDailyPresence(defaultData);
+          const mappedDefaults = defaultData.reduce((acc, dayData) => {
+            acc[dayData.date] = dayData;
+            return acc;
+          }, {});
+          setMonthlyPresenceData(mappedDefaults);
+        } else {
+          setDailyPresence(presenceData);
+          const mappedData = presenceData.reduce((acc, dayData) => {
+            acc[dayData.date] = dayData;
+            return acc;
+          }, {});
+          setMonthlyPresenceData(mappedData);
+        }
       } catch (error) {
-        console.warn("No presence data found for this month.");
+        console.error("Error fetching presence data:", error);
       }
     };
+    
     
 
     fetchDefaultTimes();
     fetchDailyPresence();
+    setIsMonthChanged(false);
   }, [date, userEmail]);
+
+  const handleSignOut = () => {
+    localStorage.removeItem('token');
+    navigate('/login'); // Redirect to login page
+  };
+
+  const checkTokenExpiration = () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/login'); // Redirect to login if token is missing
+      return;
+    }
+
+    try {
+      const decodedToken = jwtDecode(token);
+      const currentTime = Date.now() / 1000;
+      if (decodedToken.exp < currentTime) {
+        // Token is expired, redirect to login
+        localStorage.removeItem('token');
+        navigate('/login');
+      }
+    } catch (error) {
+      console.error("Error decoding token:", error);
+      localStorage.removeItem('token'); // Clear invalid token
+      navigate('/login'); // Redirect to login on error
+    }
+  };
+  
+  useEffect(() => {
+    checkTokenExpiration();
+  }, []);
+
+  const handleMonthChange = (newDate) => {
+    setDate(newDate);
+    setIsMonthChanged(true); 
+  };
 
   const openPopup = (day) => {
     console.log("Selected day:", day);
@@ -65,8 +136,8 @@ const CalendarComponent = ({ userEmail }) => {
       national_holiday: false,
       weekend: isWeekend,
       day_off: false,
-      time_off: '',
-      extra_hours: '',
+      time_off: '00:00',
+      extra_hours: '00:00',
       notes: '',
     };
 
@@ -85,7 +156,7 @@ const CalendarComponent = ({ userEmail }) => {
         ...prevData,
         [dayString]: {
           ...prevData[dayString],
-          ...monthlyPresenceData[dayString], // Merge any updated data
+          ...monthlyPresenceData[dayString], 
         },
       }));
     }
@@ -107,12 +178,33 @@ const CalendarComponent = ({ userEmail }) => {
   };
   
 
-  const isDataChanged = () => {
+  const isDataChanged = (dayString) => {
+    const savedData = dailyPresence.find(p => p.date === dayString);
+    const currentData = monthlyPresenceData[dayString];
+  
+    if (!currentData) return false; 
+    if (!savedData) return true; 
+  
+    return (
+      savedData.entry_time_morning !== currentData.entry_time_morning ||
+      savedData.exit_time_morning !== currentData.exit_time_morning ||
+      savedData.entry_time_afternoon !== currentData.entry_time_afternoon ||
+      savedData.exit_time_afternoon !== currentData.exit_time_afternoon ||
+      savedData.national_holiday !== currentData.national_holiday ||
+      savedData.weekend !== currentData.weekend ||
+      savedData.day_off !== currentData.day_off ||
+      savedData.time_off !== currentData.time_off ||
+      savedData.extra_hours !== currentData.extra_hours ||
+      savedData.notes !== currentData.notes
+    );
+  };
+
+  const isMonthDataChanged = () => {
     return Object.keys(monthlyPresenceData).some(dayString => {
       const savedData = dailyPresence.find(p => p.date === dayString);
       const currentData = monthlyPresenceData[dayString];
   
-      if (!savedData) return true; // New data added
+      if (!savedData) return true;
       return (
         savedData.entry_time_morning !== currentData.entry_time_morning ||
         savedData.exit_time_morning !== currentData.exit_time_morning ||
@@ -127,18 +219,16 @@ const CalendarComponent = ({ userEmail }) => {
       );
     });
   };
-  
-  
 
   const handleSaveMonthlyPresence = async () => {
-    const dataHasChanged = isDataChanged();
+    const dataHasChanged = isMonthDataChanged();
     const year = date.getFullYear();
     const month = date.getMonth();
   
     const daysInMonth = new Date(year, month + 1, 0).getDate();
 
     const allDaysOfMonth = Array.from({ length: daysInMonth }, (_, i) => {
-      const day = new Date(year, month, i + 2);
+      const day = new Date(year, month, i + 1);
       return day.toLocaleDateString('en-CA');});
       
     if (!dataHasChanged) {
@@ -148,7 +238,6 @@ const CalendarComponent = ({ userEmail }) => {
       if (!confirmSubmit) return;
 
     }
-
 
     const presenceDataList = allDaysOfMonth.map(day => {
       const savedData = monthlyPresenceData[day] || dailyPresence.find(p => p.date === day) || {
@@ -214,24 +303,28 @@ const CalendarComponent = ({ userEmail }) => {
   return (
     <div className="calendar-container">
       <h1>Monthly Presence Tracker</h1>
+      {/* Sign Out Button */}
+      <button onClick={handleSignOut} className="sign-out-button">Sign Out</button>
       {error && <p className="error-message">{error}</p>}
       <Calendar
         onChange={setDate}
         value={date}
+        onActiveStartDateChange={({ activeStartDate }) => handleMonthChange(activeStartDate)}
         tileContent={({ date }) => {
           const dayString = date.toLocaleDateString('en-CA');
-          const hasCustomData = !!monthlyPresenceData[dayString];
+          const hasCustomData = isDataChanged(dayString);
           return (
-            <div onClick={() => openPopup(date)} style={{width: '100%',
-              height: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 1,
-              cursor: 'pointer', }}>
-              {hasCustomData ? '✔' : 'default'}
-            </div>
-          );
+            <div onClick={() => openPopup(date)}
+                 style={{width: '100%',
+                   height: '100%',
+                   display: 'flex',
+                   alignItems: 'center',
+                   justifyContent: 'center',
+                   zIndex: 1,
+                   cursor: 'pointer', }}>
+                   {hasCustomData ? '✔' : 'default'}
+                 </div>
+              );
         }}
         view="month"
       />

@@ -1,0 +1,254 @@
+.admin-dashboard {
+  display: flex;
+  font-family: Arial, sans-serif;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  max-width: 80%;
+  max-width: 1200px;
+  margin: 0 auto;
+  margin: 0 auto;
+  padding: 20px;
+  padding: 20px;
+  box-sizing: border-box;
+  color: #333;
+}
+
+/* Header */
+.admin-dashboard h1 {
+  font-size: 2em;
+  color: #000000;
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+/* Filter Section */
+.filter-section {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.filter-section label {
+  font-weight: bold;
+  color: #4a90e2;
+}
+
+.filter-section select {
+  padding: 8px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  font-size: 1em;
+  background-color: #f7f7f7;
+  color: #333;
+}
+
+/* Employee List */
+.employee-list {
+  margin-top: 20px;
+  padding: 15px;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.employee-list h2 {
+  color: #4a90e2;
+}
+
+.employee-list ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.employee-list li {
+  padding: 10px;
+  cursor: pointer;
+  border-bottom: 1px solid #ddd;
+  transition: background-color 0.3s;
+}
+
+.employee-list li:hover {
+  background-color: #e0f7ff;
+}
+
+/* Employee Details */
+.employee-details {
+  margin-top: 20px;
+  padding: 15px;
+  background-color: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.employee-details h2 {
+  color: #4a90e2;
+}
+
+.employee-details p {
+  margin: 5px 0;
+  font-size: 1em;
+}
+
+/* Presence Data */
+.presence-data {
+  margin-top: 20px;
+  padding: 15px;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.presence-data h2 {
+  color: #4a90e2;
+}
+
+.presence-data p {
+  margin: 5px 0;
+  font-size: 1em;
+}
+
+.presence-data .react-calendar {
+  margin-top: 20px;
+  width: 100%;
+  border: none;
+  background-color: #4a90e2 !important;
+  color: rgb(0, 0, 0) !important;
+  font-size: 1em;
+}
+
+.react-calendar__tile--active {
+  background-color: #4a90e2 !important;
+  color: white !important;
+}
+
+/* Email Section */
+.email-section {
+  margin-top: 20px;
+  padding: 15px;
+  background-color: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  text-align: center;
+}
+
+.email-section h2 {
+  color: #4a90e2;
+}
+
+.email-section textarea {
+  width: 100%;
+  padding: 10px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  font-size: 1em;
+  resize: vertical;
+  margin-top: 10px;
+}
+
+.email-section button {
+  margin-top: 10px;
+  padding: 10px 20px;
+  background-color: #4a90e2;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 1em;
+  transition: background-color 0.3s;
+}
+
+.email-section button:hover {
+  background-color: #3c7bb6;
+}
+
+/* Export Button */
+button {
+  margin-top: 20px;
+  padding: 10px 20px;
+  background-color: #4ae29b;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 1em;
+  transition: background-color 0.3s;
+}
+
+button:hover {
+  background-color: #3c7bb6;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .filter-section {
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .filter-section label, .filter-section select {
+    width: 100%;
+  }
+
+  .admin-dashboard {
+    padding: 10px;
+  }
+
+  .employee-list, .employee-details, .presence-data, .email-section {
+    padding: 10px;
+  }
+
+  .email-section button, button {
+    width: 100%;
+  }
+}
+
+
+.day-popup {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.day-popup-content {
+  background-color: white;
+  padding: 20px;
+  border-radius: 8px;
+  width: 300px;
+  max-width: 90%;
+}
+
+.day-popup-content h2 {
+  margin-top: 0;
+}
+
+.day-popup-content button {
+  margin-top: 10px;
+}
+
+
+.sign-out-button {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background-color: #ff4d4f; /* Red for distinction */
+  color: white;
+  border: none;
+  border-radius: 5px;
+  padding: 10px 15px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.sign-out-button:hover {
+  background-color: #ff7875;
+}

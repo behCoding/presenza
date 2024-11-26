@@ -1,4 +1,5 @@
-from fastapi import FastAPI, Query, Path
+import copy
+from fastapi import FastAPI, Query, Path, BackgroundTasks
 
 from auth import get_password_hash, authenticate_user, \
     create_access_token, delete_user_from_db, get_current_user, update_user_db, get_all_users, get_all_employees
@@ -13,8 +14,10 @@ from models import User
 from datetime import datetime, timedelta, time
 from typing import List
 from models import DailyPresence
-from serialization import UserCreate, Token, UserUpdate, DailyPresenceBase, HoursDefaultBase, UserBase, UserBaseID
-from CRUD import get_daily_presences, get_user_default_hours, create_default_hours, get_user_by_id
+from serialization import UserCreate, Token, UserUpdate, DailyPresenceBase, HoursDefaultBase, UserBase, UserBaseID, \
+    EmailRequest
+from CRUD import get_daily_presences, get_user_default_hours, create_default_hours, get_user_by_id, get_hour_minute, \
+    has_submitted_presence, send_email_to_employee
 
 app = FastAPI()
 
@@ -208,7 +211,7 @@ def get_daily_presence(user_id: int, month: str, year: str, db: Session = Depend
 
 
 @app.get("/employee-total_presence/{user_id}/{year}/{month}", response_model=dict)
-def get_daily_presence(user_id: int, month: str, year: str, db: Session = Depends(get_db)):
+def get_employee_overview(user_id: int, month: str, year: str, db: Session = Depends(get_db)):
     try:
         # Parse the month string to a datetime object
         month_start = datetime.strptime(year+month, "%Y%m")
@@ -219,60 +222,100 @@ def get_daily_presence(user_id: int, month: str, year: str, db: Session = Depend
     # Query for presence data within the specified month range
     presence_data = (
         db.query(DailyPresence)
-        .filter(
-            DailyPresence.employee_id == user_id,
+        .filter(DailyPresence.employee_id == user_id,
             DailyPresence.date >= month_start,
-            DailyPresence.date < month_end
-        )
+            DailyPresence.date < month_end)
         .all()
     )
-    overviewOfMonth = {'isSubmitted': False,
-                       'totalWorkedHoursInMonth': 0,
-                       'totalExtraHoursInMonth': 0,
-                       'totalOffHoursInMonth': 0,
-                       'totalOffDaysInMonth': 0}
+    rawOverviewOfMonth = {'isSubmitted': False,
+                          'notes': '',
+                          'totalWorkedHoursInMonth': 0,
+                          'totalExtraHoursInMonth': 0,
+                          'totalOffHoursInMonth': 0,
+                          'totalOffDaysInMonth': 0,
+                          'totalExpectedWorkingHours': 0}
+
+    extraHoursInDays = ''
+    offHoursInDays = ''
+    daysOffInDays = ''
+
     if presence_data:
-        overviewOfMonth['isSubmitted'] = True
+        rawOverviewOfMonth['isSubmitted'] = True
 
         for day in presence_data:
-            workedHoursPerDay = calculate_hours_per_day(day.entry_time_morning,
-                                                        day.exit_time_morning,
-                                                        day.entry_time_afternoon,
-                                                        day.exit_time_afternoon)
-            overviewOfMonth['totalWorkedHoursInMonth'] += workedHoursPerDay
-            overviewOfMonth['totalExtraHoursInMonth'] += day.extra_hours
-            overviewOfMonth['totalOffHoursInMonth'] += day.time_off
-            overviewOfMonth['totalOffDaysInMonth'] += day.day_off
+            if not (day.national_holiday or day.weekend):
+                rawOverviewOfMonth['totalExpectedWorkingHours'] += 8
+                if not day.day_off:
+                    workedHoursPerDay = calculate_hours_per_day(day.entry_time_morning,
+                                                                day.exit_time_morning,
+                                                                day.entry_time_afternoon,
+                                                                day.exit_time_afternoon)
+                    rawOverviewOfMonth['totalWorkedHoursInMonth'] += workedHoursPerDay
+                else:
+                    rawOverviewOfMonth['totalOffDaysInMonth'] += 1
+                    daysOffInDays += f'{day.date.day}\n'
+            if day.notes:
+                rawOverviewOfMonth['notes'] += f'day={day.date.day} : {day.notes}\n'
+
+            if day.extra_hours != time(0, 0):
+                rawOverviewOfMonth['totalExtraHoursInMonth'] += (datetime.combine(datetime.today(), day.extra_hours)
+                                                                 - datetime.combine(datetime.today(),
+                                                                                    time(0, 0))).seconds / 3600
+                extraHoursInDays += f'{day.date.day}\n'
+            if day.time_off != time(0, 0):
+                rawOverviewOfMonth['totalOffHoursInMonth'] += (datetime.combine(datetime.today(), day.time_off)
+                                                               - datetime.combine(datetime.today(),
+                                                                                  time(0, 0))).seconds / 3600
+                offHoursInDays += f'{day.date.day}\n'
+
+    overviewOfMonth = copy.deepcopy(rawOverviewOfMonth)
+    totalWorkedHours, totalWorkedRemainedMinutes = get_hour_minute(rawOverviewOfMonth['totalWorkedHoursInMonth'])
+    overviewOfMonth['totalWorkedHoursInMonth'] = f'{totalWorkedHours}:{totalWorkedRemainedMinutes}'
+
+    extraHoursHour, extraHoursMinute = get_hour_minute(rawOverviewOfMonth['totalExtraHoursInMonth'])
+    overviewOfMonth['totalExtraHoursInMonth'] = f'{extraHoursHour}:{extraHoursMinute} in days: {extraHoursInDays}'
+
+    offHoursHour, offHoursMinute = get_hour_minute(rawOverviewOfMonth['totalOffHoursInMonth'])
+    overviewOfMonth['totalOffHoursInMonth'] = f'{offHoursHour}:{offHoursMinute} in days: {offHoursInDays} '
+
+    overviewOfMonth['totalOffDaysInMonth'] = f' {rawOverviewOfMonth['totalOffDaysInMonth']} in days: {daysOffInDays}'
 
     return overviewOfMonth
 
 
 @app.post("/send_email_to_missing", response_model=List[UserBase])
-def send_email(yearMonth: str,
-               text: str,
+def send_email(request: EmailRequest,
+               background_tasks: BackgroundTasks,
                db: Session = Depends(get_db)):
-    senderEmail = ''
-    receiversEmail = []
+    year, month = request.yearMonth.split("-")
+    text = request.text
+
     allEmployees = get_all_employees(db)
 
+    missing_employees = []
+    for employee in allEmployees:
+        if not has_submitted_presence(employee.id, year=year, month=month, db=db):
+            missing_employees.append(employee)
+    for employee in missing_employees:
+        background_tasks.add_task(
+            send_email_to_employee,
+            receiver_email=employee.work_email,
+            subject="Attendance Submission Reminder",
+            body=text)
 
-    pass
+    return missing_employees
 
     
 def calculate_hours_per_day(morning_in, morning_out, afternoon_in, afternoon_out):
     total_hours = 0.0
 
-    if morning_in and morning_out:
-        morning_in_time = datetime.strptime(morning_in, "%H:%M").time()
-        morning_out_time = datetime.strptime(morning_out, "%H:%M").time()
-        total_hours += (datetime.combine(datetime.today(), morning_out_time) -
-                        datetime.combine(datetime.today(), morning_in_time)).seconds / 3600
+    if morning_in and morning_out and morning_out > morning_in:
+        total_hours += (datetime.combine(datetime.today(), morning_out) -
+                        datetime.combine(datetime.today(), morning_in)).seconds / 3600
 
-    if afternoon_in and afternoon_out:
-        afternoon_in_time = datetime.strptime(afternoon_in, "%H:%M").time()
-        afternoon_out_time = datetime.strptime(afternoon_out, "%H:%M").time()
-        total_hours += (datetime.combine(datetime.today(), afternoon_out_time) -
-                        datetime.combine(datetime.today(), afternoon_in_time)).seconds / 3600
+    if afternoon_in and afternoon_out and afternoon_out > afternoon_in:
+        total_hours += (datetime.combine(datetime.today(), afternoon_out) -
+                        datetime.combine(datetime.today(), afternoon_in)).seconds / 3600
 
     return total_hours
 
