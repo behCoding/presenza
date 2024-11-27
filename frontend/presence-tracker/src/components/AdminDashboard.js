@@ -13,7 +13,7 @@ const AdminDashboard = () => {
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [employeeDetails, setEmployeeDetails] = useState({});
   const [presenceData, setPresenceData] = useState([]);
-  const [emailText, setEmailText] = useState("Please ensure that you have submitted your attendance data.");
+  const [emailText, setEmailText] = useState("Hello,\nPlease ensure that you have submitted your attendance presence.\nKind Regards,\nAdminstration");
   const [selectedDayData, setSelectedDayData] = useState(null); 
   const [isPopupOpen, setIsPopupOpen] = useState(false); 
   const navigate = useNavigate(); 
@@ -26,6 +26,8 @@ const AdminDashboard = () => {
     isSubmitted: false,
     notes: ''
   });
+  const [missingEmployees, setMissingEmployees] = useState([]);
+
 
   const checkTokenExpiration = () => {
     const token = localStorage.getItem('token');
@@ -126,10 +128,32 @@ const AdminDashboard = () => {
     fetchEmployeeDetails(employeeId);
   };
 
-  const handleExportExcel = () => {
-    // Export employee data to Excel format (placeholder for real implementation)
-    console.log("Exporting employee data to Excel");
+  const handleExportExcel = async (employeeId, year, month, employeeDetails) => {
+    try {
+      const response = await axios.get(
+        `http://localhost:8000/export_presence_overview/${employeeId}/${year}/${month}`,
+        {
+          responseType: "blob", 
+        }
+      );
+      const blob = new Blob([response.data], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `presence_overview_${year}_${month}_${employeeDetails.name}_${employeeDetails.surname}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Failed to export data to Excel:", error);
+      alert("An error occurred while exporting data. Please try again.");
+    }
   };
+  
+  
 
   const handleSendEmail = async () => {
     if (!selectedYear || !selectedMonth) {
@@ -152,14 +176,32 @@ const AdminDashboard = () => {
     }
   };
   
+  const fetchMissingEmployees = async () => {
+    if (!selectedYear || !selectedMonth) return;
 
-    // Calculate activeStartDate for the calendar based on selected month and year
-    const getCalendarStartDate = () => {
-      if (selectedYear && selectedMonth) {
-        return new Date(selectedYear, selectedMonth - 1); // Month is zero-indexed in Date
-      }
-      return new Date(); // Default to current date if no month/year is selected
-    };
+    try {
+      const response = await axios.get(
+        `http://localhost:8000/retrieve_not_submitted_presence/${selectedYear}/${selectedMonth}`
+      );
+      setMissingEmployees(response.data);
+    } catch (error) {
+      console.error("Error fetching missing employees:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchMissingEmployees();
+  }, [selectedYear, selectedMonth]);
+
+
+  // Calculate activeStartDate for the calendar based on selected month and year
+  const getCalendarStartDate = () => {
+    if (selectedYear && selectedMonth) {
+      return new Date(selectedYear, selectedMonth - 1); // Month is zero-indexed in Date
+    }
+    return new Date(); // Default to current date if no month/year is selected
+  };
+
 
     	
   const handleDayClick = (date) => {
@@ -210,6 +252,22 @@ const AdminDashboard = () => {
           <option value="11">November</option>
           <option value="12">December</option>
         </select>
+      </div>
+
+      {/* Missing Employees Section */}
+      <div className="missing-employees-section">
+        <h2>Missing Presence for Employees:</h2>
+        {missingEmployees.length > 0 ? (
+          <ul>
+            {missingEmployees.map((employee) => (
+              <li key={employee.id}>
+                {employee.name} {employee.surname}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p>No employees found.</p>
+        )}
       </div>
 
       {/* Employee List */}
@@ -309,7 +367,17 @@ const AdminDashboard = () => {
         <button onClick={handleSendEmail}>Send Email</button>
       </div>
 
-      <button onClick={handleExportExcel}>Export Employee Data to Excel</button>
+      <button
+        onClick={() => {
+          if (!selectedEmployee || !selectedYear || !selectedMonth) {
+            alert("Please select an employee, year, and month before exporting.");
+            return;
+          }
+          handleExportExcel(selectedEmployee, selectedYear, selectedMonth,employeeDetails);
+        }}
+      >
+        Export Data to Excel
+      </button>
     </div>
   );
 };

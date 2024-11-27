@@ -1,5 +1,5 @@
 import copy
-from fastapi import FastAPI, Query, Path, BackgroundTasks
+from fastapi import FastAPI, Query, Path, BackgroundTasks, Response
 
 from auth import get_password_hash, authenticate_user, \
     create_access_token, delete_user_from_db, get_current_user, update_user_db, get_all_users, get_all_employees
@@ -17,7 +17,8 @@ from models import DailyPresence
 from serialization import UserCreate, Token, UserUpdate, DailyPresenceBase, HoursDefaultBase, UserBase, UserBaseID, \
     EmailRequest
 from CRUD import get_daily_presences, get_user_default_hours, create_default_hours, get_user_by_id, get_hour_minute, \
-    has_submitted_presence, send_email_to_employee
+    has_submitted_presence, send_email_to_employee, calculate_hours_per_day, create_excel
+
 
 app = FastAPI()
 
@@ -283,6 +284,21 @@ def get_employee_overview(user_id: int, month: str, year: str, db: Session = Dep
     return overviewOfMonth
 
 
+@app.get("/retrieve_not_submitted_presence/{year}/{month}", response_model=List[UserBase])
+def retrieve_not_submitted_presence(month: str,
+                                    year: str,
+                                    db: Session = Depends(get_db)):
+
+    allEmployees = get_all_employees(db)
+
+    missing_employees = []
+    for employee in allEmployees:
+        if not has_submitted_presence(employee.id, year=year, month=month, db=db):
+            missing_employees.append(employee)
+
+    return missing_employees
+
+
 @app.post("/send_email_to_missing", response_model=List[UserBase])
 def send_email(request: EmailRequest,
                background_tasks: BackgroundTasks,
@@ -305,19 +321,29 @@ def send_email(request: EmailRequest,
 
     return missing_employees
 
-    
-def calculate_hours_per_day(morning_in, morning_out, afternoon_in, afternoon_out):
-    total_hours = 0.0
 
-    if morning_in and morning_out and morning_out > morning_in:
-        total_hours += (datetime.combine(datetime.today(), morning_out) -
-                        datetime.combine(datetime.today(), morning_in)).seconds / 3600
+@app.get("/export_presence_overview/{user_id}/{year}/{month}")
+def export_presence_overview(user_id: int, year: str, month: str, db: Session = Depends(get_db)):
+    # Retrieve the monthly overview
+    overview = get_employee_overview(user_id, month, year, db)
 
-    if afternoon_in and afternoon_out and afternoon_out > afternoon_in:
-        total_hours += (datetime.combine(datetime.today(), afternoon_out) -
-                        datetime.combine(datetime.today(), afternoon_in)).seconds / 3600
+    # Retrieve daily presence data
+    presence_data = (
+        db.query(DailyPresence)
+        .filter(DailyPresence.employee_id == user_id,
+                DailyPresence.date >= datetime.strptime(year + month, "%Y%m"),
+                DailyPresence.date < datetime(datetime.strptime(year + month, "%Y%m").year,
+                                              datetime.strptime(year + month, "%Y%m").month + 1, 1))
+        .all()
+    )
+    employee = db.query(User).filter(User.id == user_id).first()
 
-    return total_hours
+    excel_output = create_excel(presence_data, overview)
+
+    headers = {
+        'Content-Disposition': f'attachment; filename="presence_overview_{year}_{month}_{employee.name}_{employee.surname}.xlsx"'
+    }
+    return Response(content=excel_output.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers=headers)
 
 
 if __name__ == "__main__":

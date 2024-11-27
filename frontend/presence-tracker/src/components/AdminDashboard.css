@@ -140,13 +140,14 @@
 }
 
 .email-section textarea {
-  width: 100%;
+  width: 90%;
   padding: 10px;
   border-radius: 4px;
   border: 1px solid #ccc;
   font-size: 1em;
   resize: vertical;
   margin-top: 10px;
+  white-space: pre-line;
 }
 
 .email-section button {
@@ -235,6 +236,41 @@ button:hover {
   margin-top: 10px;
 }
 
+/* Missing Employees Section */
+.missing-employees-section {
+  margin-top: 20px;
+  background-color: #fff;
+  padding: 15px;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+}
+
+.missing-employees-section h2 {
+  font-size: 1.5rem;
+  color: #555;
+  margin-bottom: 10px;
+}
+
+.missing-employees-section ul {
+  list-style-type: none;
+  padding: 0;
+}
+
+.missing-employees-section ul li {
+  background-color: #f1f1f1;
+  margin-bottom: 8px;
+  padding: 10px;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+  font-size: 1rem;
+  color: #333;
+}
+
+.missing-employees-section p {
+  font-size: 1rem;
+  color: #777;
+  margin: 0;
+}
 
 .sign-out-button {
   position: absolute;
