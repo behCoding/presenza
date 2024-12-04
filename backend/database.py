@@ -1,8 +1,10 @@
+import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 
-SQLALCHEMY_DATABASE_URL = "postgresql://postgres:behrad6623@localhost/presenza"
+SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL",
+                                    "postgresql://postgres:behrad6623@db:5432/presenza")
 
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

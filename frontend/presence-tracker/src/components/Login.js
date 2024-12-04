@@ -8,6 +8,21 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const emailSuffix = '@storelink.it';
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  const handleEmailChange = (e) => {
+    const value = e.target.value;
+    setUsername(value);
+
+    // Show suggestions if no "@" is present
+    setShowSuggestions(!value.includes('@'));
+  };
+
+  const handleSuggestionClick = () => {
+    setUsername((prev) => `${prev}${emailSuffix}`);
+    setShowSuggestions(false);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -41,12 +56,31 @@ const Login = () => {
     <div>
       <h2>Login</h2>
       <form onSubmit={handleSubmit}>
-        <input
-          type="text"
-          placeholder="name@storelink.it"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-        />
+      <div style={{ position: 'relative' }}>
+          <input
+            type="text"
+            placeholder="Enter your email"
+            value={username}
+            onChange={handleEmailChange}
+          />
+          {showSuggestions && (
+            <div
+              style={{
+                position: 'absolute',
+                backgroundColor: 'white',
+                border: '1px solid #ccc',
+                borderRadius: '4px',
+                width: '100%',
+                zIndex: 10,
+                cursor: 'pointer',
+              }}
+              onClick={handleSuggestionClick}
+            >
+              {username}@storelink.it
+            </div>
+          )}
+        </div>
+        
         <input
           type="password"
           placeholder="Password"
@@ -56,7 +90,12 @@ const Login = () => {
         <button type="submit">Login</button>
       </form>
       {error && <p>{error}</p>}
+
+      <button onClick={() => navigate('/register')} style={{ marginTop: '10px' }}>
+        Register
+      </button>
     </div>
+
   );
 };
 

@@ -66,7 +66,6 @@ const RegisterPage = () => {
           <label>Role:</label>
           <select {...register("role", { required: true })}>
             <option value="employee">Employee</option>
-            <option value="admin">Administrator</option>
           </select>
         </div>
         <button type="submit">Register</button>

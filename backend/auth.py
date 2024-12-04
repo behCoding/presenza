@@ -80,7 +80,7 @@ def get_all_users(db: Session):
 
 
 def get_all_employees(db: Session):
-    db_users = db.query(User).filter(User.role == 'employee')
+    db_users = db.query(User).filter(User.role == 'employee').all()
 
     return db_users
 

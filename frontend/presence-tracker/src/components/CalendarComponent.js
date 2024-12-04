@@ -296,7 +296,14 @@ const CalendarComponent = ({ userEmail }) => {
         alert('Default hours saved successfully!');
       }
     } catch (error) {
-      console.error("Error saving default hours.");
+      if (error.response && error.response.status === 404) {
+        // Handle the case where no data was found (404)
+        await axios.post('http://localhost:8000/default-hours', defaultHoursData);
+        alert('Default hours saved successfully!');
+      } else {
+        console.error("Error saving default hours:", error);
+        alert("Error occurred while saving default hours.");
+      }
     }
   };
 

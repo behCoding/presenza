@@ -85,10 +85,10 @@ async def update_user(user: UserUpdate, db: Session = Depends(get_db), current_u
 
 
 @app.get("/users", response_model=List[UserBaseID])
-async def fetch_users(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+async def fetch_employees(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Not authorized")
-    db_users = get_all_users(db=db)
+    db_users = get_all_employees(db=db)
     return db_users
 
 
@@ -114,17 +114,26 @@ def get_daily_presence_records(user_id: int, year: int, month: int, db: Session 
 # Set default hours for a user
 @app.post("/default-hours", response_model=HoursDefaultBase)
 def set_default_hours(default_hours: HoursDefaultBase, db: Session = Depends(get_db)):
-    return create_default_hours(db, default_hours)
+    hours_data = create_default_hours(db, default_hours)
+    if hours_data is None:
+        raise HTTPException(status_code=404, detail="Data not found-post")
+    return hours_data
 
 
 @app.put("/default-hours", response_model=HoursDefaultBase)
 def set_default_hours(default_hours: HoursDefaultBase, db: Session = Depends(get_db)):
-    return create_default_hours(db, default_hours)
+    hours_data = create_default_hours(db, default_hours)
+    if hours_data is None:
+        raise HTTPException(status_code=404, detail="Data not found-put")
+    return hours_data
 
 
 @app.get("/get-default-hours", response_model=HoursDefaultBase)
 def get_default_hours(user_id: int = Query(...), db: Session = Depends(get_db)):
-    return get_user_default_hours(db, user_id)
+    hours_data = get_user_default_hours(db, user_id)
+    if hours_data is None:
+        raise HTTPException(status_code=404, detail="Data not found-get")
+    return hours_data
 
 
 @app.post("/employee-dashboard", response_model=List[DailyPresenceBase])
@@ -279,7 +288,8 @@ def get_employee_overview(user_id: int, month: str, year: str, db: Session = Dep
     offHoursHour, offHoursMinute = get_hour_minute(rawOverviewOfMonth['totalOffHoursInMonth'])
     overviewOfMonth['totalOffHoursInMonth'] = f'{offHoursHour}:{offHoursMinute} in days: {offHoursInDays} '
 
-    overviewOfMonth['totalOffDaysInMonth'] = f' {rawOverviewOfMonth['totalOffDaysInMonth']} in days: {daysOffInDays}'
+    totalOffDaysInMonth = rawOverviewOfMonth['totalOffDaysInMonth']
+    overviewOfMonth['totalOffDaysInMonth'] = f' {totalOffDaysInMonth} in days: {daysOffInDays}'
 
     return overviewOfMonth
 

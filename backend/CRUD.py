@@ -152,7 +152,7 @@ def create_excel(presence_data: [DailyPresence], employeeOverview: Dict):
             day.notes
         ])
 
-        sheet1.column_dimensions["A"].width = 10
+        sheet1.column_dimensions["A"].width = 12
 
         if day.weekend:
             for col in range(1, 12):
@@ -180,6 +180,7 @@ def create_excel(presence_data: [DailyPresence], employeeOverview: Dict):
     for cell in sheet1[1]:
         cell.font = Font(bold=True)
 
+    sheet2.column_dimensions["A"].width = 26
     # Populate Monthly Overview sheet
     sheet2.append(["Metric", "Value"])
     sheet2.append(["Is Submitted", "Yes" if employeeOverview["isSubmitted"] else "No"])
