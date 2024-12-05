@@ -1,0 +1,38 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    environment:
+      - DATABASE_URL=postgresql://postgres:behrad6623@db:5432/presenza
+      - PYTHONPATH=/app
+    depends_on:
+      - db
+
+  frontend:
+    build:
+      context: ./frontend/presence-tracker
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend/presence-tracker:/app
+    environment:
+      - REACT_APP_BACKEND_URL=http://localhost:8000
+
+  db:
+    image: postgres:15
+    container_name: presenza_db
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: behrad6623
+      POSTGRES_DB: presenza
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
