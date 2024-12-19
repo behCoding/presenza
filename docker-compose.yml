@@ -7,7 +7,7 @@ services:
     volumes:
       - ./backend:/app
     environment:
-      - DATABASE_URL=postgresql://postgres:behrad6623@db:5432/presenza
+      - DATABASE_URL=postgresql://postgres:Storelink2024@db:5432/presenza
       - PYTHONPATH=/app
     depends_on:
       - db
@@ -15,8 +15,11 @@ services:
   frontend:
     build:
       context: ./frontend/presence-tracker
+      dockerfile: Dockerfile
     ports:
       - "3000:3000"
+    stdin_open: true
+    tty: true
     volumes:
       - ./frontend/presence-tracker:/app
     environment:
@@ -29,7 +32,7 @@ services:
       - "5433:5432"
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: behrad6623
+      POSTGRES_PASSWORD: Storelink2024
       POSTGRES_DB: presenza
     volumes:
       - postgres_data:/var/lib/postgresql/data

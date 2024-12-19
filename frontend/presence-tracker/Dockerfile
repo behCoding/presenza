@@ -2,13 +2,14 @@ FROM node:18
 
 WORKDIR /app
 
-COPY package.json ./
-RUN yarn install
+COPY package.json package-lock.json ./
+
+RUN npm install
 
 COPY . .
 
-# Expose port for the frontend app
+RUN npm run build
+
 EXPOSE 3000
 
-# Run the frontend application
-CMD ["yarn", "start"]
+CMD ["npm", "start"]
