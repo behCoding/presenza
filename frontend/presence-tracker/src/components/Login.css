@@ -6,33 +6,71 @@ body {
   justify-content: center;
   min-height: 100vh;
   margin: 0;
-  background: linear-gradient(to right, #5b9bd5, #3280da); /* Softer gradient for improved readability */
+  background: linear-gradient(
+    to left,
+    #000000 0%,
+    #3280da 100%
+  ); /* Softer gradient for improved readability */
 }
 
-.login-container {
+.login_container {
   background-color: #ffffff;
-  padding: 40px 30px; /* Slightly narrower padding for more compact design */
+  padding: 50px 10px; /* Slightly narrower padding for more compact design */
   border-radius: 10px; /* Increased border-radius for a smoother look */
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2); /* Slightly stronger shadow for definition */
   width: 320px;
   text-align: center;
-}
-
-.login-container h2 {
-  color: #444444; /* Darker color for better contrast */
-  margin-bottom: 1em;
-  font-weight: 700; /* Slightly bolder for header */
-}
-
-.login-container form {
   display: flex;
   flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 30px;
 }
 
-.login-container input[type="text"],
-.login-container input[type="password"] {
+.login_container h2 {
+  color: #333;
+  margin: 0;
+  padding: 0;
+}
+
+.login_container form {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: 80%;
+  gap: 10px;
+}
+
+.login_container .login_inputContainer {
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.login_container .login_email {
+  position: relative;
+  width: 100%;
+}
+
+.login_email .login_suggestion {
+  width: 100%;
+  position: absolute;
+  background-color: white;
+  border: 1px solid #ccc;
+  margin-top: -10px;
+  padding: 10px;
+  border-radius: 4px;
+  z-index: 10;
+  cursor: pointer;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.login_container input[type="text"],
+.login_container input[type="password"] {
   width: 100%;
   padding: 12px;
+  box-sizing: border-box;
   margin: 10px 0;
   border: 1px solid #b0c4de; /* Softer border color for input fields */
   border-radius: 6px;
@@ -42,15 +80,15 @@ body {
   color: #333333; /* Text color inside input fields */
 }
 
-.login-container input[type="text"]:focus,
-.login-container input[type="password"]:focus {
+.login_container input[type="text"]:focus,
+.login_container input[type="password"]:focus {
   outline: none;
   border-color: #1f3f64; /* Focus border color to match theme */
   background-color: #eef6fc; /* Light blue background on focus */
 }
 
-.login-container button[type="submit"] {
-  background-color: #112740;
+.login_container button[type="submit"] {
+  width: 100%;
   color: #fffbfb;
   padding: 12px;
   border: none;
@@ -59,14 +97,14 @@ body {
   font-size: 1em;
   transition: background-color 0.3s;
   margin-top: 15px;
+  background: linear-gradient(to left, #3280da 0%, #000000 100%);
 }
 
-.login-container button[type="submit"]:hover {
-  background-color: #1acb61;
+.login_container button[type="submit"]:hover {
+  background: linear-gradient(to left, #000000 0%, #3280da 100%);
 }
 
-.login-container p {
-  color: #d9534f; /* Adjusted error message color for contrast */
-  margin-top: 15px;
+.login_container p {
+  margin-top: 7px;
   font-size: 0.9em;
 }
