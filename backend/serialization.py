@@ -11,7 +11,7 @@ class UserBase(BaseModel):
     phone_number: str
     personal_email: str
     work_email: str
-    role: str
+    role: str = "employee"
 
     class Config:
         orm_mode = True
