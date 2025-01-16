@@ -60,6 +60,7 @@ const CalendarComponent = ({ userEmail }) => {
               day_off: false,
               time_off: "00:00",
               extra_hours: "00:00",
+              illness: "",
               notes: "",
             };
           });
@@ -138,6 +139,7 @@ const CalendarComponent = ({ userEmail }) => {
       day_off: false,
       time_off: '00:00',
       extra_hours: '00:00',
+      illness: '',
       notes: '',
     };
 
@@ -195,6 +197,7 @@ const CalendarComponent = ({ userEmail }) => {
       savedData.day_off !== currentData.day_off ||
       savedData.time_off !== currentData.time_off ||
       savedData.extra_hours !== currentData.extra_hours ||
+      savedData.illness !== currentData.illness ||
       savedData.notes !== currentData.notes
     );
   };
@@ -215,6 +218,7 @@ const CalendarComponent = ({ userEmail }) => {
         savedData.day_off !== currentData.day_off ||
         savedData.time_off !== currentData.time_off ||
         savedData.extra_hours !== currentData.extra_hours ||
+        savedData.illness !== currentData.illness ||
         savedData.notes !== currentData.notes
       );
     });
@@ -245,9 +249,10 @@ const CalendarComponent = ({ userEmail }) => {
         national_holiday: false,
         weekend: [0, 6].includes(new Date(day).getDay()),  // Mark weekends as true
         day_off: false,
-        time_off: "00:00", // Default value
-        extra_hours: "00:00", // Default value
-        notes: "", // Default value
+        time_off: "00:00",
+        extra_hours: "00:00",
+        illness: "",
+        notes: "",
       };
   
       return {
@@ -277,6 +282,7 @@ const CalendarComponent = ({ userEmail }) => {
   const handleDefaultHoursSave = async () => {
     const defaultHoursData = {
       user_id: userId,
+      submitted_by_id: userId,
       entry_time_morning: defaultTimes.entry_time_morning,
       exit_time_morning: defaultTimes.exit_time_morning,
       entry_time_afternoon: defaultTimes.entry_time_afternoon,
@@ -285,7 +291,7 @@ const CalendarComponent = ({ userEmail }) => {
 
     try {
       const response = await axios.get('http://localhost:8000/get-default-hours', {
-        params: { user_id: userId }
+        params: { user_id: userId, submitted_by_id: userId }
       });
 
       if (response.data) {
@@ -410,6 +416,13 @@ const CalendarComponent = ({ userEmail }) => {
               type="time"
               value={monthlyPresenceData[selectedDay.toLocaleDateString('en-CA')]?.extra_hours || ''}
               onChange={(e) => handlePresenceChange('extra_hours', e.target.value)}
+            />
+          </div>
+            <div>
+            <label>Illness Certificate NO.:</label>
+            <textarea
+              value={monthlyPresenceData[selectedDay.toLocaleDateString('en-CA')]?.illness || ''}
+              onChange={(e) => handlePresenceChange('notes', e.target.value)}
             />
           </div>
           <div>

@@ -10,14 +10,14 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 from database import get_db
-from models import User
+from models import User, NationalHolidays, AdminModifiedPresence
 from datetime import datetime, timedelta, time
 from typing import List
 from models import DailyPresence
 from serialization import UserCreate, Token, UserUpdate, DailyPresenceBase, HoursDefaultBase, UserBase, UserBaseID, \
-    EmailRequest
+    EmailRequest, EmailRequestPerUser
 from CRUD import get_daily_presences, get_user_default_hours, create_default_hours, get_user_by_id, get_hour_minute, \
-    has_submitted_presence, send_email_to_employee, calculate_hours_per_day, create_excel
+    has_submitted_presence, send_email_to_employee, calculate_hours_per_day, create_excel_original, create_excel_modified
 
 
 app = FastAPI()
@@ -70,18 +70,24 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     return {"access_token": access_token, "token_type": "bearer", "role": user.role, "user_id": user.id}
 
 
-@app.delete("/users/{user_id}")
+@app.delete("/users/delete/{user_id}")
 def delete_user(user_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Not authorized")
-    return delete_user_from_db(db=db, user_id=user_id)
+    user_deleted = delete_user_from_db(db=db, user_id=user_id)
+    if not user_deleted:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"message": f"User with ID {user_id} has been successfully deleted."}
 
 
-@app.put("/users/{user_id}", response_model=UserUpdate)
+@app.put("/users/update/{user_id}", response_model=UserUpdate)
 async def update_user(user: UserUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Not authorized")
-    return update_user_db(db=db, user=user)
+    updated_user = update_user_db(db=db, user=user)
+    if not updated_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return updated_user
 
 
 @app.get("/users", response_model=List[UserBaseID])
@@ -129,8 +135,8 @@ def set_default_hours(default_hours: HoursDefaultBase, db: Session = Depends(get
 
 
 @app.get("/get-default-hours", response_model=HoursDefaultBase)
-def get_default_hours(user_id: int = Query(...), db: Session = Depends(get_db)):
-    hours_data = get_user_default_hours(db, user_id)
+def get_default_hours(user_id: int = Query(...), submitted_by_id: int = Query(...), db: Session = Depends(get_db)):
+    hours_data = get_user_default_hours(db, user_id, submitted_by_id)
     if hours_data is None:
         raise HTTPException(status_code=404, detail="Data not found-get")
     return hours_data
@@ -152,14 +158,20 @@ def create_update_monthly_presence(
             .filter(DailyPresence.employee_id == user_id, DailyPresence.date == day_data.date)
             .first()
         )
-        if day_data.day_off or day_data.national_holiday:  # day_data.weekend could be added if no one works at weekend
+
+        admin_existing_record = (
+            db.query(AdminModifiedPresence)
+            .filter(AdminModifiedPresence.employee_id == user_id, AdminModifiedPresence.date == day_data.date)
+            .first()
+        )
+
+        if day_data.day_off or day_data.national_holiday:
             day_data.entry_time_morning = time(0, 0)
             day_data.exit_time_morning = time(0, 0)
             day_data.entry_time_afternoon = time(0, 0)
             day_data.exit_time_afternoon = time(0, 0)
 
         if existing_record:
-            # Update existing record
             existing_record.entry_time_morning = day_data.entry_time_morning
             existing_record.exit_time_morning = day_data.exit_time_morning
             existing_record.entry_time_afternoon = day_data.entry_time_afternoon
@@ -168,11 +180,43 @@ def create_update_monthly_presence(
             existing_record.weekend = day_data.weekend
             existing_record.day_off = day_data.day_off
             existing_record.time_off = day_data.time_off
+            existing_record.illness = day_data.illness
             existing_record.notes = day_data.notes
+
+            # Update or create admin-modified record
+            if admin_existing_record:
+                admin_existing_record.modified_entry_time_morning = day_data.entry_time_morning
+                admin_existing_record.modified_exit_time_morning = day_data.exit_time_morning
+                admin_existing_record.modified_entry_time_afternoon = day_data.entry_time_afternoon
+                admin_existing_record.modified_exit_time_afternoon = day_data.exit_time_afternoon
+                admin_existing_record.modified_national_holiday = day_data.national_holiday
+                admin_existing_record.modified_weekend = day_data.weekend
+                admin_existing_record.modified_day_off = day_data.day_off
+                admin_existing_record.modified_time_off = day_data.time_off
+                admin_existing_record.modified_illness = day_data.modified_illness
+                admin_existing_record.modified_notes = day_data.notes
+            else:
+                new_admin_record = AdminModifiedPresence(
+                    employee_id=user_id,
+                    original_presence_id=existing_record.id,
+                    date=day_data.date,
+                    modified_entry_time_morning=day_data.entry_time_morning,
+                    modified_exit_time_morning=day_data.exit_time_morning,
+                    modified_entry_time_afternoon=day_data.entry_time_afternoon,
+                    modified_exit_time_afternoon=day_data.exit_time_afternoon,
+                    modified_national_holiday=day_data.national_holiday,
+                    modified_weekend=day_data.weekend,
+                    modified_day_off=day_data.day_off,
+                    modified_time_off=day_data.time_off,
+                    modified_extra_hours=day_data.extra_hours,
+                    modified_illness=day_data.illness,
+                    modified_notes=day_data.notes,
+                )
+                db.add(new_admin_record)
             response_data.append(existing_record)
         else:
-            # Create a new record for the day
-            new_record = DailyPresence(
+            # Create new employee record
+            new_employee_record = DailyPresence(
                 employee_id=user_id,
                 date=day_data.date,
                 entry_time_morning=day_data.entry_time_morning,
@@ -184,13 +228,36 @@ def create_update_monthly_presence(
                 day_off=day_data.day_off,
                 time_off=day_data.time_off,
                 extra_hours=day_data.extra_hours,
+                illness=day_data.illness,
                 notes=day_data.notes,
             )
-            db.add(new_record)
-            response_data.append(new_record)
+            db.add(new_employee_record)
+            db.commit()
+            db.refresh(new_employee_record)
+
+            # Create admin-modified record
+            new_admin_record = AdminModifiedPresence(
+                employee_id=user_id,
+                original_presence_id=new_employee_record.id,
+                date=day_data.date,
+                modified_entry_time_morning=day_data.entry_time_morning,
+                modified_exit_time_morning=day_data.exit_time_morning,
+                modified_entry_time_afternoon=day_data.entry_time_afternoon,
+                modified_exit_time_afternoon=day_data.exit_time_afternoon,
+                modified_national_holiday=day_data.national_holiday,
+                modified_weekend=day_data.weekend,
+                modified_day_off=day_data.day_off,
+                modified_time_off=day_data.time_off,
+                modified_extra_hours=day_data.extra_hours,
+                modified_illness=day_data.illness,
+                modified_notes=day_data.notes,
+            )
+            db.add(new_admin_record)
+            response_data.append(new_employee_record)
 
     db.commit()
-    # Refresh the data after commit for updated response
+
+    # Refresh all records after the final commit
     for record in response_data:
         db.refresh(record)
 
@@ -211,6 +278,29 @@ def get_daily_presence(user_id: int, month: str, year: str, db: Session = Depend
         db.query(DailyPresence)
         .filter(
             DailyPresence.employee_id == user_id,
+            DailyPresence.date >= month_start,
+            DailyPresence.date < month_end
+        )
+        .all()
+    )
+
+    return presence_data
+
+
+@app.get("/admin-modified-presence/{user_id}/{year}/{month}", response_model=List[DailyPresenceBase])
+def get_admin_modified_presence(user_id: int, month: str, year: str, db: Session = Depends(get_db)):
+    try:
+        # Parse the month string to a datetime object
+        month_start = datetime.strptime(year+month, "%Y%m")
+        month_end = datetime(month_start.year, month_start.month + 1, 1)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid month format. Use 'YYYY-MM'.")
+
+    # Query for presence data within the specified month range
+    presence_data = (
+        db.query(AdminModifiedPresence)
+        .filter(
+            AdminModifiedPresence.employee_id == user_id,
             DailyPresence.date >= month_start,
             DailyPresence.date < month_end
         )
@@ -309,8 +399,23 @@ def retrieve_not_submitted_presence(month: str,
     return missing_employees
 
 
+@app.get("/retrieve_submitted_presence/{year}/{month}", response_model=List[UserBase])
+def retrieve_submitted_presence(month: str,
+                                year: str,
+                                db: Session = Depends(get_db)):
+
+    allEmployees = get_all_employees(db)
+
+    submitted_employees = []
+    for employee in allEmployees:
+        if has_submitted_presence(employee.id, year=year, month=month, db=db):
+            submitted_employees.append(employee)
+
+    return submitted_employees
+
+
 @app.post("/send_email_to_missing", response_model=List[UserBase])
-def send_email(request: EmailRequest,
+def send_email_to_missing(request: EmailRequest,
                background_tasks: BackgroundTasks,
                db: Session = Depends(get_db)):
     year, month = request.yearMonth.split("-")
@@ -332,12 +437,66 @@ def send_email(request: EmailRequest,
     return missing_employees
 
 
-@app.get("/export_presence_overview/{user_id}/{year}/{month}")
+@app.post("/send_email_to_employee", response_model=UserBase)
+def send_email_to_one(request: EmailRequestPerUser,
+                      background_tasks: BackgroundTasks,
+                      db: Session = Depends(get_db)):
+    userID = request.user_id
+    text = request.text
+    employee = db.query(User).filter(User.id == userID)
+    background_tasks.add_task(
+        send_email_to_employee,
+        receiver_email=employee.work_email,
+        subject="Attendance Submission Reminder",
+        body=text)
+
+    return employee
+
+
+@app.get("/get_national_holidays", response_model=List)
+def get_national_holidays(year: int, db: Session = Depends(get_db)):
+    year_start = datetime(year, 1,1)
+    year_end = datetime(year,12, 31)
+
+    national_holidays = (db.query(NationalHolidays).filter(
+        NationalHolidays.date >= year_start,
+        NationalHolidays.date<= year_end).all())
+
+    return national_holidays
+
+
+@app.post("/add_national_holiday")
+def add_national_holiday(nationalHolidayDate: str, db: Session = Depends(get_db)):
+        existing_record = db.query(NationalHolidays).filter(NationalHolidays.date == nationalHolidayDate).first()
+
+        if existing_record:
+            raise HTTPException(status_code=404, detail="Date is already added")
+
+        else:
+            new_record = NationalHolidays(date=nationalHolidayDate)
+            db.add(new_record)
+            db.commit()
+            db.refresh(new_record)
+
+        return {'message': 'Added successfully'}
+
+
+@app.delete("/remove_national_holiday")
+def remove_national_holiday(nationalHolidayDate: str, db: Session = Depends(get_db)):
+    existing_record = db.query(NationalHolidays).filter(NationalHolidays.date == nationalHolidayDate).first()
+
+    if existing_record:
+        db.delete(existing_record)
+        db.commit()
+        return {"message": "Removed successfully"}
+    else:
+        raise HTTPException(status_code=404, detail="Date is not present in the system")
+
+
+@app.get("/export_original_presence_overview/{user_id}/{year}/{month}")
 def export_presence_overview(user_id: int, year: str, month: str, db: Session = Depends(get_db)):
-    # Retrieve the monthly overview
     overview = get_employee_overview(user_id, month, year, db)
 
-    # Retrieve daily presence data
     presence_data = (
         db.query(DailyPresence)
         .filter(DailyPresence.employee_id == user_id,
@@ -348,7 +507,49 @@ def export_presence_overview(user_id: int, year: str, month: str, db: Session = 
     )
     employee = db.query(User).filter(User.id == user_id).first()
 
-    excel_output = create_excel(presence_data, overview)
+    excel_output = create_excel_original(presence_data, overview)
+
+    headers = {
+        'Content-Disposition': f'attachment; filename="presence_overview_{year}_{month}_{employee.name}_{employee.surname}.xlsx"'
+    }
+    return Response(content=excel_output.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers=headers)
+
+
+@app.get("/export_modified_presence_overview/{user_id}/{year}/{month}")
+def export_presence_overview(user_id: int, year: str, month: str, db: Session = Depends(get_db)):
+
+    presence_data = (
+        db.query(DailyPresence)
+        .filter(AdminModifiedPresence.employee_id == user_id,
+                AdminModifiedPresence.date >= datetime.strptime(year + month, "%Y%m"),
+                AdminModifiedPresence.date < datetime(datetime.strptime(year + month, "%Y%m").year,
+                                              datetime.strptime(year + month, "%Y%m").month + 1, 1))
+        .all()
+    )
+    employee = db.query(User).filter(User.id == user_id).first()
+
+    excel_output = create_excel_modified(presence_data, employee)
+
+    headers = {
+        'Content-Disposition': f'attachment; filename="presence_overview_{year}_{month}_{employee.name}_{employee.surname}.xlsx"'
+    }
+    return Response(content=excel_output.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers=headers)
+
+
+@app.get("/export_modified_presence_overview/{user_id}/{year}/{month}")
+def export_presence_overview(user_id: int, year: str, month: str, db: Session = Depends(get_db)):
+
+    presence_data = (
+        db.query(AdminModifiedPresence)
+        .filter(AdminModifiedPresence.employee_id == user_id,
+                AdminModifiedPresence.date >= datetime.strptime(year + month, "%Y%m"),
+                AdminModifiedPresence.date < datetime(datetime.strptime(year + month, "%Y%m").year,
+                                              datetime.strptime(year + month, "%Y%m").month + 1, 1))
+        .all()
+    )
+    employee = db.query(User).filter(User.id == user_id).first()
+
+    excel_output = create_excel_original(presence_data)
 
     headers = {
         'Content-Disposition': f'attachment; filename="presence_overview_{year}_{month}_{employee.name}_{employee.surname}.xlsx"'

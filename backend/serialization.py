@@ -38,6 +38,7 @@ class UserUpdate(UserBase):
     work_email: Optional[str]
     password: Optional[str]
     role: Optional[str]
+    is_active: Optional[bool]
     id: int
 
 
@@ -53,6 +54,7 @@ class DailyPresenceBase(BaseModel):
     day_off: bool
     time_off: time
     extra_hours: time
+    illness: str
     notes: Optional[str] = None
 
     class Config:
@@ -61,6 +63,7 @@ class DailyPresenceBase(BaseModel):
 
 class HoursDefaultBase(BaseModel):
     user_id: int
+    submitted_by_id: int
     entry_time_morning: Optional[time] = None
     exit_time_morning: Optional[time] = None
     entry_time_afternoon: Optional[time] = None
@@ -83,3 +86,12 @@ class EmailRequest(BaseModel):
 
     class Config:
         orm_mode = True
+
+
+class EmailRequestPerUser(BaseModel):
+    user_id: int
+    text: str
+
+    class Config:
+        orm_mode = True
+

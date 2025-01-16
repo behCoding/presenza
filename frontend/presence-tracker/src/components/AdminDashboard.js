@@ -220,9 +220,12 @@ const AdminDashboard = () => {
  
   return (
     <div className="admin-dashboard">
-      <h1>Admin Dashboard</h1>
-      {/* Sign Out Button */}
-      <button onClick={handleSignOut} className="sign-out-button">Sign Out</button>
+      <div className="navbar">
+        <h1>Admin Dashboard</h1>
+        {/* Sign Out Button */}
+        <button onClick={handleSignOut} className="sign-out-button">Sign Out</button>
+      </div>
+
       {/* Month and Year Selection */}
       <div className="filter-section">    
         <label>Year:</label>

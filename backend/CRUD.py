@@ -1,11 +1,12 @@
 import datetime
 import smtplib
 from email.mime.text import MIMEText
-from typing import Dict
+from typing import Dict, Optional
 
 from sqlalchemy.orm import Session
+
 from models import DailyPresence, User, HoursDefault
-from serialization import DailyPresenceBase, HoursDefaultBase
+from serialization import DailyPresenceBase, HoursDefaultBase, UserBase
 from datetime import datetime
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
@@ -46,9 +47,9 @@ def create_or_update_daily_presence(db: Session, user_id: int, daily_presence_da
     return presence_record
 
 
-# Get or create default hours for a user
 def create_default_hours(db: Session, defaults: HoursDefaultBase):
-    default_hours = db.query(HoursDefault).filter(HoursDefault.user_id == defaults.user_id).first()
+    default_hours = db.query(HoursDefault).filter(HoursDefault.user_id == defaults.user_id,
+                                                  HoursDefault.submitted_by_id == defaults.submitted_by_id).first()
 
     if not default_hours:
         default_hours = HoursDefault(**defaults.dict())
@@ -65,8 +66,11 @@ def create_default_hours(db: Session, defaults: HoursDefaultBase):
     return default_hours
 
 
-def get_user_default_hours(db: Session, user_id: int):
-    default_hours = db.query(HoursDefault).filter(HoursDefault.user_id == user_id).first()
+def get_user_default_hours(db: Session, user_id: int, submitted_by_id: int):
+    default_hours = (db.query(HoursDefault).
+                     filter(HoursDefault.user_id == user_id,
+                            HoursDefault.submitted_by_id == submitted_by_id).
+                     first())
 
     return default_hours
 
@@ -122,19 +126,20 @@ def calculate_hours_per_day(morning_in, morning_out, afternoon_in, afternoon_out
     return total_hours
 
 
-def create_excel(presence_data: [DailyPresence], employeeOverview: Dict):
+def create_excel_original(presence_data: [DailyPresence], employeeOverview: Dict=Optional):
     # Create Excel workbook
     workbook = Workbook()
     sheet1 = workbook.active
-    sheet1.title = "Daily Presence"
-    sheet2 = workbook.create_sheet("Monthly Overview")
+    sheet1.title = "Presenze mensile"
+    if employeeOverview:
+        sheet2 = workbook.create_sheet("Osservazione mensile")
     highlight_fill = PatternFill(start_color="0eff65", end_color="0eff65", fill_type="solid")
     weekend_holiday_fill = PatternFill(start_color="ffc7ab", end_color="ffc7ab", fill_type="solid")
     dayOff_fill = PatternFill(start_color="edec07", end_color="edec07", fill_type="solid")
 
     sheet1.append([
-        "Date", "Morning Entry", "Morning Exit", "Afternoon Entry", "Afternoon Exit",
-        "Day Off", "National Holiday", "Weekend", "Extra Hours", "Time Off", "Notes"
+        "Date", "Entrata", "Uscita", "Entrata", "Uscita",
+        "FERIE", "FESTIVITÀ NAZIONALE", "WEEKEND", "STRAORDINARIO", "PERMESSO", "NOTE"
     ])
 
     for i, day in enumerate(presence_data, start=2):
@@ -179,17 +184,16 @@ def create_excel(presence_data: [DailyPresence], employeeOverview: Dict):
     # Style the header row
     for cell in sheet1[1]:
         cell.font = Font(bold=True)
-
-    sheet2.column_dimensions["A"].width = 26
-    # Populate Monthly Overview sheet
-    sheet2.append(["Metric", "Value"])
-    sheet2.append(["Is Submitted", "Yes" if employeeOverview["isSubmitted"] else "No"])
-    sheet2.append(["Total Worked Hours", employeeOverview["totalWorkedHoursInMonth"]])
-    sheet2.append(["Total Extra Hours", employeeOverview["totalExtraHoursInMonth"]])
-    sheet2.append(["Total Off Hours", employeeOverview["totalOffHoursInMonth"]])
-    sheet2.append(["Total Off Days", employeeOverview["totalOffDaysInMonth"]])
-    sheet2.append(["Total Expected Working Hours", employeeOverview["totalExpectedWorkingHours"]])
-    sheet2.append(["Notes", employeeOverview["notes"]])
+    if employeeOverview:
+        sheet2.column_dimensions["A"].width = 26
+        sheet2.append(["Metric", "Value"])
+        sheet2.append(["Is Submitted", "Yes" if employeeOverview["isSubmitted"] else "No"])
+        sheet2.append(["Total Worked Hours", employeeOverview["totalWorkedHoursInMonth"]])
+        sheet2.append(["Total Extra Hours", employeeOverview["totalExtraHoursInMonth"]])
+        sheet2.append(["Total Off Hours", employeeOverview["totalOffHoursInMonth"]])
+        sheet2.append(["Total Off Days", employeeOverview["totalOffDaysInMonth"]])
+        sheet2.append(["Total Expected Working Hours", employeeOverview["totalExpectedWorkingHours"]])
+        sheet2.append(["Notes", employeeOverview["notes"]])
 
     for cell in sheet2[1]:
         cell.font = Font(bold=True)
@@ -200,3 +204,69 @@ def create_excel(presence_data: [DailyPresence], employeeOverview: Dict):
 
     return excel_output
 
+
+def create_excel_modified(presence_data: [DailyPresence], employee: UserBase):
+
+    # Create Excel workbook based on admin modified data
+    workbook = Workbook()
+    sheet1 = workbook.active
+    sheet1.title = "Presenze mensile"
+    highlight_fill = PatternFill(start_color="0eff65", end_color="0eff65", fill_type="solid")
+    weekend_holiday_fill = PatternFill(start_color="ffc7ab", end_color="ffc7ab", fill_type="solid")
+    dayOff_fill = PatternFill(start_color="edec07", end_color="edec07", fill_type="solid")
+
+    sheet1.insert_rows(2)
+    sheet1.append(["Cognome:", employee.surname, "Nome", employee.name])
+    sheet1.insert_rows(2)
+    sheet1.append(["Anno", presence_data[0].date])
+
+    sheet1.append([
+        "Date", "Entrata", "Uscita", "Entrata", "Uscita",
+        "FERIE", "FESTIVITÀ NAZIONALE", "WEEKEND", "STRAORDINARIO", "PERMESSO", "NOTE"
+    ])
+
+    for i, day in enumerate(presence_data, start=2):
+        sheet1.append([
+            day.date,
+            day.entry_time_morning,
+            day.exit_time_morning,
+            day.entry_time_afternoon,
+            day.exit_time_afternoon,
+            "Yes" if day.day_off else "No",
+            "Yes" if day.national_holiday else "No",
+            "Yes" if day.weekend else "No",
+            day.extra_hours,
+            day.time_off,
+            day.notes
+        ])
+
+        sheet1.column_dimensions["A"].width = 12
+
+        if day.weekend:
+            for col in range(1, 12):
+                sheet1.cell(row=i, column=col).fill = weekend_holiday_fill
+
+        if day.day_off or day.national_holiday:
+            for col in range(1, 12):
+                sheet1.cell(row=i, column=col).fill = dayOff_fill
+
+        if day.extra_hours != time(0,0):
+            sheet1[f"I{i}"].fill = highlight_fill
+
+        # Highlight time off if not "00:00"
+        if day.time_off != time(0, 0):
+            sheet1[f"J{i}"].fill = highlight_fill
+
+        # Highlight notes if not empty
+        if day.notes:
+            sheet1[f"K{i}"].fill = highlight_fill
+
+        if day.day_off:
+            sheet1[f"F{i}"].fill = highlight_fill
+
+
+    excel_output = BytesIO()
+    workbook.save(excel_output)
+    excel_output.seek(0)
+
+    return excel_output

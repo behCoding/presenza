@@ -95,12 +95,16 @@ def update_user_db(db: Session, user: UserUpdate):
             setattr(db_user, var, value)
         db.commit()
         db.refresh(db_user)
+    else:
+        return None
     return db_user
 
 
 def delete_user_from_db(db: Session, user_id: int):
     db_user = db.query(User).filter(User.id == user_id).first()
-    if db_user:
-        db.delete(db_user)
-        db.commit()
-    return db_user
+    if not db_user:
+        return False
+
+    db.delete(db_user)
+    db.commit()
+    return True
