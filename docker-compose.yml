@@ -4,11 +4,14 @@ services:
       context: ./backend
     ports:
       - "8000:8000"
+      - "5678:5678"
     volumes:
       - ./backend:/app
     environment:
       - DATABASE_URL=postgresql://postgres:Storelink2024@db:5432/presenza
       - PYTHONPATH=/app
+      - SMTP_PASSWORD=Stor&link@25!
+      - SMTP_USERNAME=presenze@storelink.it
     depends_on:
       - db
 

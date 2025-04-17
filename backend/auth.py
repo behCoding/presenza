@@ -11,6 +11,11 @@ from models import User
 from serialization import TokenData, UserUpdate
 from config import settings
 from CRUD import get_user_by_username
+import random
+import smtplib
+from email.mime.text import MIMEText
+import os
+
 
 # Configuration
 SECRET_KEY = settings.SECRET_KEY
@@ -108,3 +113,31 @@ def delete_user_from_db(db: Session, user_id: int):
     db.delete(db_user)
     db.commit()
     return True
+
+
+def generate_otp():
+    return str(random.randint(100000, 999999))
+
+def send_otp_email(recipient_email: str, otp_code: str):
+    smtp_server = "smtps.aruba.it"
+    smtp_port = 587
+    smtp_user_sender = os.getenv("SMTP_USERNAME")
+    smtp_sender_password = os.getenv("SMTP_PASSWORD")
+
+    subject = "Your one-time password (OTP)"
+    body = f"Your OTP code is:\n\n{otp_code}\n\nThe code will expire in 5 minutes."
+    msg = MIMEText(body)
+    msg['subject'] = subject
+    msg['from'] = os.getenv("SMTP_USERNAME")
+    msg['to'] = recipient_email
+    
+    try:
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
+            server.ehlo()
+            server.starttls()
+            server.ehlo()
+            server.login(smtp_user_sender, smtp_sender_password)
+            server.sendmail(smtp_user_sender, recipient_email, msg.as_string())
+    except Exception as e:
+        raise HTTPException(status_code=200, detail=f"Failed to send email: {str(e)}")        
+

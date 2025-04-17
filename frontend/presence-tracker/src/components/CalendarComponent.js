@@ -30,7 +30,7 @@ const CalendarComponent = ({ userEmail }) => {
     const fetchDefaultTimes = async () => {
       try {
         const response = await axios.get('http://localhost:8000/get-default-hours', {
-          params: { user_id: userId }
+          params: { user_id: userId, submitted_by_id: userId }
         });
         setDefaultTimes(response.data);
       } catch (error) {

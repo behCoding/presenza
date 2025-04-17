@@ -1,5 +1,5 @@
 from datetime import time, date
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr, validator
 from typing import Optional
 
 
@@ -11,6 +11,7 @@ class UserBase(BaseModel):
     phone_number: str
     personal_email: str
     work_email: str
+    is_active: Optional[bool] = True
     role: str = "employee"
 
     class Config:
@@ -42,6 +43,23 @@ class UserUpdate(UserBase):
     id: int
 
 
+class PasswordChangeRequest(BaseModel):
+    work_email: str
+    new_password: str
+
+class EmailOTPRequest(BaseModel):
+    email: EmailStr    
+
+    @validator("email", pre=True)
+    def strip_and_lower_email(cls, v):
+        return v.strip().lower()
+
+
+class OTPVerifyRequest(BaseModel):
+    email: EmailStr
+    otp: str
+
+
 class DailyPresenceBase(BaseModel):
     employee_id: str
     date: date
@@ -56,6 +74,25 @@ class DailyPresenceBase(BaseModel):
     extra_hours: time
     illness: str
     notes: Optional[str] = None
+
+    class Config:
+        orm_mode = True
+
+
+class ModifiedDailyPresenceBase(BaseModel):
+    employee_id: str
+    date: date
+    modified_entry_time_morning: Optional[time] = None
+    modified_exit_time_morning: Optional[time] = None
+    modified_entry_time_afternoon: Optional[time] = None
+    modified_exit_time_afternoon: Optional[time] = None
+    modified_national_holiday: bool
+    modified_weekend: bool
+    modified_day_off: bool
+    modified_time_off: time
+    modified_extra_hours: time
+    modified_illness: str
+    modified_notes: Optional[str] = None
 
     class Config:
         orm_mode = True

@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 const AdminDashboard = () => {
   const [selectedMonth, setSelectedMonth] = useState('');
   const [selectedYear, setSelectedYear] = useState('');
+  const [holidayDate, setHolidayDate] = useState('');
   const [employees, setEmployees] = useState([]);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [employeeDetails, setEmployeeDetails] = useState({});
@@ -131,7 +132,7 @@ const AdminDashboard = () => {
   const handleExportExcel = async (employeeId, year, month, employeeDetails) => {
     try {
       const response = await axios.get(
-        `http://localhost:8000/export_presence_overview/${employeeId}/${year}/${month}`,
+        `http://localhost:8000/export_modified_presence_overview/${employeeId}/${year}/${month}`,
         {
           responseType: "blob", 
         }
@@ -188,6 +189,23 @@ const AdminDashboard = () => {
       console.error("Error fetching missing employees:", error);
     }
   };
+
+  const handleAddHoliday = async () => {
+    console.log('Holiday', holidayDate)
+    try {
+      const response = await axios.post(
+        'http://localhost:8000/add_national_holiday',
+        {
+          nationalHolidayDate: new Date(holidayDate).toISOString().split('T')[0],
+        },
+        { headers: { "Content-Type": "application/json" } } 
+      );
+      alert("Added successfully!");
+    } catch (error) {
+      console.error("Error in adding:", error);
+      alert("Failed to add holiday.");
+    }
+  }
 
   useEffect(() => {
     fetchMissingEmployees();
@@ -283,6 +301,11 @@ const AdminDashboard = () => {
             </li>
           ))}
         </ul>
+      </div>
+
+      <div>
+        <input type='date' value={holidayDate} onChange={(e) => setHolidayDate(e.target.value)} />
+        <button onClick={handleAddHoliday}>Add Holiday</button>
       </div>
 
       {/* Employee Details */}
