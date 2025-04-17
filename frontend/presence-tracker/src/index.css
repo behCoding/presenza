@@ -1,13 +1,276 @@
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+@import "tailwindcss";
+
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-rgb: 255, 255, 255;
+  --scrollbar-track: #f1f1f1;
+  --scrollbar-thumb: #14b8a6;
+  --scrollbar-thumb-hover: #0d9488;
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+.dark {
+  --foreground-rgb: 255, 255, 255;
+  --background-rgb: 17, 24, 39;
+  --scrollbar-track: #1f2937;
+  --scrollbar-thumb: #0d9488;
+  --scrollbar-thumb-hover: #0f766e;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: rgb(var(--background-rgb));
+}
+
+.iti {
+  width: 100%;
+}
+
+.login input {
+  background-color: transparent !important;
+  color: var(--text-color);
+  caret-color: var(--caret-color);
+}
+
+.login input {
+  --text-color: rgb(0, 0, 0);
+  --caret-color: rgb(0, 0, 0);
+}
+
+.dark input {
+  --text-color: rgb(255, 255, 255);
+  --caret-color: rgb(255, 255, 255);
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-text-fill-color: var(--text-color) !important;
+  -webkit-box-shadow: 0 0 0 1000px transparent inset !important;
+  caret-color: var(--caret-color);
+  transition: background-color 9999s ease-in-out 0s;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0);
+}
+
+.dark-input input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+}
+
+input[type="time"] {
+  color: #111827;
+}
+
+.dark-input input[type="time"] {
+  color: #ffffff;
+}
+
+input[type="time"]::-webkit-calendar-picker-indicator {
+  filter: invert(0);
+}
+
+.dark-input input[type="time"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+}
+
+/* Custom Calendar Styles */
+.calendar-container {
+  display: flex;
+  flex-direction: column;
+}
+
+.calendar-container .react-calendar {
+  width: 100%;
+  border: none;
+  font-family: inherit;
+  background: white;
+  box-shadow: none;
+  color: inherit;
+  padding: 2px;
+  border-radius: 5px;
+}
+
+.calendar-container .react-calendar__viewContainer {
+  display: flex;
+  flex-direction: column;
+}
+
+.calendar-container .react-calendar__month-view {
+  display: flex;
+  flex-direction: column;
+}
+
+.calendar-container .react-calendar__month-view__days {
+  display: grid;
+  grid-template-rows: repeat(6, 1fr);
+}
+
+.calendar-container .react-calendar__tile {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 8px;
+  position: relative;
+  border-radius: 5px;
+  transition: all 0.2s ease;
+  color: inherit;
+  height: auto;
+}
+
+.calendar-container .react-calendar__tile:enabled:hover,
+.calendar-container .react-calendar__tile:enabled:focus {
+  background-color: rgba(79, 209, 197, 0.15);
+}
+
+.calendar-container .react-calendar__tile--active {
+  background: linear-gradient(
+    to right,
+    rgba(20, 184, 166, 0.2),
+    rgba(6, 182, 212, 0.2)
+  ) !important;
+  border: 1px solid rgba(20, 184, 166, 0.4) !important;
+}
+
+.calendar-container .react-calendar__month-view__weekdays {
+  text-transform: uppercase;
+  font-weight: bold;
+  font-size: 0.8em;
+  padding: 8px 0;
+}
+
+.calendar-container .react-calendar__navigation {
+  margin-bottom: 16px;
+}
+
+.calendar-container .react-calendar__navigation button {
+  min-width: 44px;
+  background: none;
+  font-size: 16px;
+  border-radius: 5px;
+  color: inherit;
+}
+
+.calendar-container .react-calendar__navigation button:enabled:hover,
+.calendar-container .react-calendar__navigation button:enabled:focus {
+  background-color: rgba(79, 209, 197, 0.15);
+}
+
+.calendar-container .react-calendar__month-view__days__day--weekend {
+  color: #f87171;
+}
+
+.calendar-container .react-calendar__tile--now {
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px dashed rgba(245, 158, 11, 0.4);
+}
+
+/* Dark mode calendar overrides */
+.dark-calendar .react-calendar {
+  background-color: #1f2937;
+  color: #f3f4f6;
+}
+
+.dark-calendar .react-calendar__tile {
+  color: #f3f4f6;
+}
+
+.dark-calendar .react-calendar__tile:enabled:hover,
+.dark-calendar .react-calendar__tile:enabled:focus {
+  background-color: rgba(20, 184, 166, 0.2);
+}
+
+.dark-calendar .react-calendar__tile--active {
+  background: linear-gradient(
+    to right,
+    rgba(20, 184, 166, 0.3),
+    rgba(6, 182, 212, 0.3)
+  ) !important;
+  border: 1px solid rgba(20, 184, 166, 0.5) !important;
+}
+
+.dark-calendar .react-calendar__tile:disabled {
+  background-color: #374151;
+  color: #9ca3af;
+}
+
+.dark-calendar .react-calendar__month-view__weekdays {
+  color: #9ca3af;
+}
+
+.dark-calendar .react-calendar__navigation button {
+  color: #f3f4f6;
+}
+
+.dark-calendar .react-calendar__navigation button:enabled:hover,
+.dark-calendar .react-calendar__navigation button:enabled:focus {
+  background-color: rgba(20, 184, 166, 0.2);
+}
+
+.dark-calendar .react-calendar__month-view__days__day--weekend {
+  color: #f87171;
+}
+
+.dark-calendar .react-calendar__tile--now {
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px dashed rgba(245, 158, 11, 0.4);
+}
+
+.dark-calendar .react-calendar__month-view__days__day--neighboringMonth {
+  color: #6b7280;
+}
+
+/* Custom Scrollbar Styles */
+/* For Webkit browsers (Chrome, Safari) */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+/* For Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+/* For Edge and IE */
+body {
+  -ms-overflow-style: none;
+}
+
+/* For tables and other scrollable containers */
+.scrollable-container::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.scrollable-container::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+  border-radius: 4px;
+}
+
+.scrollable-container::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 4px;
+}
+
+.scrollable-container::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
 }
