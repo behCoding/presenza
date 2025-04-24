@@ -71,28 +71,25 @@ const PresenzaTab: React.FC = () => {
       return;
     }
 
-    toast
-      .promise(
-        ExportEmployeePresenceData(
-          employeeDetails?.id,
-          selectedYear,
-          selectedMonth
-        ),
-        {
-          pending: "Exporting...",
-          success: "Exported Successfully",
-          error: "An error occurred while exporting data. Please try again.",
-        }
-      )
-      .then((response) => {
+    try {
+      const response = await ExportEmployeePresenceData(
+        employeeDetails?.id,
+        selectedYear,
+        selectedMonth
+      );
+
+      if("detail" in response) {
+        toast.info(response.detail)
+      } else {
         downloadExcelFile(
           response,
           `employee_presence_report_${selectedYear}_${selectedMonth}_${employeeDetails.name}_${employeeDetails.surname}.xlsx`
         );
-      })
-      .catch((error) => {
-        console.error("Employee export failed:", error);
-      });
+      }
+    } catch (error) {
+      console.error("Employee export failed:", error);
+      toast.error("Employee export failed")
+    }
   };
 
   const handleAdminExportExcel = async () => {
@@ -103,28 +100,25 @@ const PresenzaTab: React.FC = () => {
       return;
     }
 
-    toast
-      .promise(
-        ExportAdminPresenceData(
-          employeeDetails?.id,
-          selectedYear,
-          selectedMonth
-        ),
-        {
-          pending: "Exporting...",
-          success: "Exported Successfully",
-          error: "An error occurred while exporting data. Please try again.",
-        }
-      )
-      .then((response) => {
+    try {
+      const response = await ExportAdminPresenceData(
+        employeeDetails?.id,
+        selectedYear,
+        selectedMonth
+      );
+
+      if("detail" in response) {
+        toast.info(response.detail)
+      } else {
         downloadExcelFile(
           response,
           `admin_presence_report_${selectedYear}_${selectedMonth}_${employeeDetails.name}_${employeeDetails.surname}.xlsx`
         );
-      })
-      .catch((error) => {
-        console.error("Admin export failed:", error);
-      });
+      }
+    } catch (error) {
+      console.error("Admin export failed:", error);
+      toast.error("Admin export failed")
+    }
   };
 
   const handleSendEmail = async (id?: number) => {

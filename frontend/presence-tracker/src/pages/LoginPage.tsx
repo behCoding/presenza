@@ -122,7 +122,7 @@ const LoginPage: React.FC = () => {
           }
 
           login(access_token, role, user_id, new Date(decodedToken.exp * 1000));
-          navigate("/");
+          navigate("/", { replace: true });
         } catch (tokenError) {
           console.error("Token decoding error:", tokenError);
           toast.error("Invalid token received");

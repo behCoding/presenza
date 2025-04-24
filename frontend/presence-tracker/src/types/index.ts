@@ -73,6 +73,10 @@ export interface EmployeeOverview {
   notes: string;
 }
 
+export interface ExcelApiResponse {
+  detail: string;
+}
+
 //EmployeePage
 
 export interface DefaultHours {

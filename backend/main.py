@@ -23,7 +23,7 @@ from CRUD import get_daily_presences, get_user_default_hours, create_default_hou
     has_submitted_presence, send_email_to_employee, calculate_hours_per_day, create_excel_original, create_excel_modified
 
 
-app = FastAPI()
+app = FastAPI(root_path="/api")
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
@@ -630,13 +630,15 @@ def export_presence_overview(user_id: int, year: str, month: str, db: Session = 
                     DailyPresence.date < datetime(int(year),int(month) + 1, 1))
             .order_by(DailyPresence.date).all())
     employee = db.query(User).filter(User.id == user_id).first()
+    if presence_data:
+        excel_output = create_excel_original(presence_data, overview)
 
-    excel_output = create_excel_original(presence_data, overview)
-
-    headers = {
-        'Content-Disposition': f'attachment; filename="presence_overview_{year}_{month}_{employee.name}_{employee.surname}.xlsx"'
-    }
-    return Response(content=excel_output.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers=headers)
+        headers = {
+            'Content-Disposition': f'attachment; filename="presence_overview_{year}_{month}_{employee.name}_{employee.surname}.xlsx"'
+        }
+        return Response(content=excel_output.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers=headers)
+    else:        
+        raise HTTPException(status_code=200, detail="Date is not present for current month")
 
 
 @app.get("/export_modified_presence_overview/{user_id}/{year}/{month}")

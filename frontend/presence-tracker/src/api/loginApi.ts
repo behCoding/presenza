@@ -2,7 +2,9 @@ import axios from "axios";
 import { LoginResponse, RegisterApiBody } from "../types";
 import { handleApiCall } from "../utils/apiUtils";
 
-const baseUrl: string = import.meta.env.VITE_API_URL;
+const baseUrl = import.meta.env.VITE_API_URL || "/api";
+
+console.log("baseUrl is:", baseUrl);
 
 export const LoginUser = async (
   username: string,

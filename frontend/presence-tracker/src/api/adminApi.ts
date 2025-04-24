@@ -1,6 +1,7 @@
 import {
   Employee,
   EmployeeOverview,
+  ExcelApiResponse,
   Holiday,
   HolidayResponse,
   PresenceData,
@@ -68,14 +69,11 @@ export const ExportEmployeePresenceData = async (
   employeeId: number,
   year: string,
   month: string
-): Promise<Blob> => {
-  return handleApiCall<Blob>(
+): Promise<Blob | ExcelApiResponse> => {
+  return handleApiCall<Blob | ExcelApiResponse>(
     () =>
       axiosInstance.get(
-        `/export_original_presence_overview/${employeeId}/${year}/${month}`,
-        {
-          responseType: "blob",
-        }
+        `/export_original_presence_overview/${employeeId}/${year}/${month}`
       ),
     "ExportEmployeePresenceData"
   );
@@ -85,14 +83,11 @@ export const ExportAdminPresenceData = async (
   employeeId: number,
   year: string,
   month: string
-): Promise<Blob> => {
-  return handleApiCall<Blob>(
+): Promise<Blob | ExcelApiResponse> => {
+  return handleApiCall<Blob | ExcelApiResponse>(
     () =>
       axiosInstance.get(
-        `/export_modified_presence_overview/${employeeId}/${year}/${month}`,
-        {
-          responseType: "blob",
-        }
+        `/export_modified_presence_overview/${employeeId}/${year}/${month}`
       ),
     "ExportAdminPresenceData"
   );

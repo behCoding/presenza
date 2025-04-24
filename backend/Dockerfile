@@ -10,9 +10,12 @@ COPY . .
 RUN pip install debugpy
 
 EXPOSE 8000
-EXPOSE 5678 
+#EXPOSE 5678 
 # Debugger port for debugpy
 
+#CMD alembic upgrade head && \
+#    python -m debugpy --listen 0.0.0.0:5678 --wait-for-client \
+#   -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
 CMD alembic upgrade head && \
-    python -m debugpy --listen 0.0.0.0:5678 --wait-for-client \
-    -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    uvicorn main:app --host 0.0.0.0 --port 8000 --reload

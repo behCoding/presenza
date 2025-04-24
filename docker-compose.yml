@@ -1,12 +1,12 @@
+version: '3.8'
+
 services:
   backend:
     build:
       context: ./backend
     ports:
       - "8000:8000"
-      - "5678:5678"
-    volumes:
-      - ./backend:/app
+      #- "5678:5678"
     environment:
       - DATABASE_URL=postgresql://postgres:Storelink2024@db:5432/presenza
       - PYTHONPATH=/app
@@ -19,14 +19,25 @@ services:
     build:
       context: ./frontend/presence-tracker
       dockerfile: Dockerfile
-    ports:
-      - "3000:3000"
-    stdin_open: true
-    tty: true
-    volumes:
-      - ./frontend/presence-tracker:/app
+      args:
+        VITE_API_URL: "/api"
     environment:
-      - VITE_API_URL=http://localhost:8000
+      - VITE_API_URL=/api
+    depends_on:
+      - backend
+
+  nginx:
+    build:
+      context: ./frontend/presence-tracker
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - frontend
+      - backend
 
   db:
     image: postgres:15
@@ -34,9 +45,9 @@ services:
     ports:
       - "5433:5432"
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: Storelink2024
-      POSTGRES_DB: presenza
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=Storelink2024
+      - POSTGRES_DB=presenza
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
