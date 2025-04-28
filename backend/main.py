@@ -638,7 +638,7 @@ def export_presence_overview(user_id: int, year: str, month: str, db: Session = 
         }
         return Response(content=excel_output.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers=headers)
     else:        
-        raise HTTPException(status_code=200, detail="Date is not present for current month")
+        raise HTTPException(status_code=404, detail="Data is not present for current month")
 
 
 @app.get("/export_modified_presence_overview/{user_id}/{year}/{month}")
@@ -658,18 +658,21 @@ def export_presence_overview(user_id: int, year: str, month: str, db: Session = 
                     AdminModifiedPresence.date < datetime(int(year), int(month) + 1, 1))
             .order_by(AdminModifiedPresence.date).all())
     employee = db.query(User).filter(User.id == user_id).first()
+    if presence_data:
+        excel_output = create_excel_modified(presence_data, employee)
 
-    excel_output = create_excel_modified(presence_data, employee)
+        headers = {
+            'Content-Disposition': f'attachment; filename="presence_overview_{year}_{month}_{employee.name}_{employee.surname}.xlsx"'
+        }
+        return Response(content=excel_output.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers=headers)
+    else:        
+        raise HTTPException(status_code=404, detail="Data is not present for current month")
+    
 
-    headers = {
-        'Content-Disposition': f'attachment; filename="presence_overview_{year}_{month}_{employee.name}_{employee.surname}.xlsx"'
-    }
-    return Response(content=excel_output.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers=headers)
-
-@app.exception_handler(RequestValidationError)
+"""@app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     print(f"Validation error: {exc}")
-    return await request_validation_exception_handler(request, exc)
+    return await request_validation_exception_handler(request, exc)"""
 
 
 @app.post("/send_otp")

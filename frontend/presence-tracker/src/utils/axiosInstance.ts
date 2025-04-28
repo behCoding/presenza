@@ -21,8 +21,11 @@ axiosInstance.interceptors.request.use(
 // Response interceptor for global error handling
 axiosInstance.interceptors.response.use(
   (response) => response,
-  (error) => {
-    console.error("Global API Error:", error);
+  async (error) => {
+    if (error.response && error.response.data instanceof Blob) {
+      const data = await error.response.data.text();
+      error.response.data = data ? JSON.parse(data) : {};
+    }
     return Promise.reject(error);
   }
 );

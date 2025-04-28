@@ -12,6 +12,7 @@ import type { Employee } from "../types";
 import { toast } from "react-toastify";
 import EmployeePresenceSection from "./EmployeePresenceSection";
 import ThemeContext from "../context/ThemeContext";
+import axios from "axios";
 
 const PresenzaTab: React.FC = () => {
   const { theme } = useContext(ThemeContext);
@@ -78,17 +79,18 @@ const PresenzaTab: React.FC = () => {
         selectedMonth
       );
 
-      if("detail" in response) {
-        toast.info(response.detail)
-      } else {
-        downloadExcelFile(
-          response,
-          `employee_presence_report_${selectedYear}_${selectedMonth}_${employeeDetails.name}_${employeeDetails.surname}.xlsx`
-        );
-      }
+        
+      downloadExcelFile(
+        response,
+        `employee_presence_report_${selectedYear}_${selectedMonth}_${employeeDetails.name}_${employeeDetails.surname}.xlsx`
+      );
     } catch (error) {
-      console.error("Employee export failed:", error);
-      toast.error("Employee export failed")
+      if (axios.isAxiosError(error) && error.response?.data?.detail) {
+        toast.info(error.response.data.detail);
+      } else {
+        console.error("Employee export failed:", error);
+        toast.error("Employee export failed");
+      }
     }
   };
 
@@ -107,17 +109,17 @@ const PresenzaTab: React.FC = () => {
         selectedMonth
       );
 
-      if("detail" in response) {
-        toast.info(response.detail)
-      } else {
-        downloadExcelFile(
-          response,
-          `admin_presence_report_${selectedYear}_${selectedMonth}_${employeeDetails.name}_${employeeDetails.surname}.xlsx`
-        );
-      }
+      downloadExcelFile(
+        response,
+        `admin_presence_report_${selectedYear}_${selectedMonth}_${employeeDetails.name}_${employeeDetails.surname}.xlsx`
+      );
     } catch (error) {
-      console.error("Admin export failed:", error);
-      toast.error("Admin export failed")
+      if (axios.isAxiosError(error) && error.response?.data?.detail) {
+        toast.info(error.response.data.detail);
+      } else {
+        console.error("Admin export failed:", error);
+        toast.error("Admin export failed");
+      }
     }
   };
 
