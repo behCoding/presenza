@@ -18,6 +18,7 @@ class User(Base):
     personal_email = Column(String, unique=True)
     work_email = Column(String, unique=True, index=True, nullable=False)
     role = Column(String, nullable=False)
+    iban = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
     password = Column(String, nullable=False)  # Password hash
 

@@ -1,4 +1,5 @@
 import datetime
+from email.mime.multipart import MIMEMultipart
 import smtplib
 from email.mime.text import MIMEText
 from typing import Dict, Optional
@@ -6,11 +7,13 @@ import os
 
 from sqlalchemy.orm import Session
 
-from models import DailyPresence, User, HoursDefault
+from models import AdminModifiedPresence, DailyPresence, User, HoursDefault
 from serialization import DailyPresenceBase, HoursDefaultBase, UserBase
 from datetime import datetime
 from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill, Alignment
+from openpyxl.styles import Font, PatternFill, Alignment, Side, Border
+from openpyxl.drawing.image import Image
+from openpyxl.worksheet.page import PageMargins
 from io import BytesIO
 from datetime import time
 
@@ -95,6 +98,14 @@ def has_submitted_presence(employee_id: int, year: str, month: str, db: Session)
     return bool(presence)
 
 
+def has_admin_submitted_presence(employee_id: int, year: str, month: str, db: Session) -> bool:
+    presence = db.query(AdminModifiedPresence).filter_by(
+        employee_id=employee_id,
+        date=datetime.strptime(year+month, "%Y%m")
+    ).first()
+    return bool(presence)
+
+
 def send_email_to_employee(receiver_email: str, subject: str, body: str):
     smtp_server = "smtps.aruba.it"
     smtp_port = 465
@@ -103,8 +114,11 @@ def send_email_to_employee(receiver_email: str, subject: str, body: str):
 
     try:
         with smtplib.SMTP_SSL(smtp_server, smtp_port) as server:
+            msg = MIMEMultipart("alternative")
+            html_part = MIMEText(body, "html")
+            msg.attach(html_part)
             server.login(smtp_user_sender, smtp_sender_password)
-            msg = MIMEText(body, "plain")
+            msg.attach(html_part)
             msg["Subject"] = subject
             msg["From"] = smtp_user_sender
             msg["To"] = receiver_email
@@ -208,14 +222,27 @@ def create_excel_original(presence_data: [DailyPresence], employeeOverview: Dict
 
 def create_excel_modified(presence_data: [DailyPresence], employee: UserBase):
 
-    # Create Excel workbook based on admin modified data
     workbook = Workbook()
     sheet1 = workbook.active
     sheet1.title = "Presenze mensile"
-    weekend_holiday_fill = PatternFill(start_color="ffc7ab", end_color="ffc7ab", fill_type="solid")
-    dayOff_fill = PatternFill(start_color="edec07", end_color="edec07", fill_type="solid")
+    sheet1.page_setup.fitToWidth = 1
+    sheet1.page_setup.fitToHeight = 0  
+    sheet1.page_margins = PageMargins(top=0.5, bottom=0.5, left=0.3, right=0.3)
+
+    
+    weekend_holiday_fill = PatternFill(start_color="bcbcbc", end_color="bcbcbc", fill_type="solid")
+    festivita_fill = PatternFill(start_color="ffada7", end_color="ffada7", fill_type="solid")
     bold_font = Font(bold=True, size=12)
     center_alignment = Alignment(horizontal="center", vertical="center")
+    thin_border = Border(left=Side(style='thin'), right=Side(style='thin'),
+                         top=Side(style='thin'), bottom=Side(style='thin'))
+
+    current_dir = os.getcwd()
+    img = Image(os.path.join(current_dir, 'logo.png'))
+    img.anchor = 'A1'
+    sheet1.add_image(img)
+    for _ in range(6):
+        sheet1.append([])
 
     sheet1.append(["Cognome:", employee.surname, "Nome", employee.name])
     sheet1.append([])
@@ -226,69 +253,80 @@ def create_excel_modified(presence_data: [DailyPresence], employee: UserBase):
 
     sheet1.append(["Date", "Entrata", "Uscita", "Entrata", "Uscita", "Ore", "Note"])
 
-    for i, day in enumerate(presence_data, start=8):
+    for day in presence_data:
         Notes = ''
         if day.modified_day_off:
             Notes += "FERIE " 
         if day.modified_national_holiday:
             Notes += "FESTIVITÀ NAZIONALE "  
         if day.modified_extra_hours.isoformat() != '00:00:00':
-            formatted_extra_hours = day.modified_extra_hours.strftime("%H:%M")
-            Notes += f"STRAORDINARIO:{formatted_extra_hours} "  
+            Notes += f"STRAORDINARIO:{day.modified_extra_hours.strftime('%H:%M')} "  
         if day.modified_time_off.isoformat() != '00:00:00':
-            formatted_time_off = day.modified_time_off.strftime("%H:%M")
-            Notes += f"PERMESSO:{formatted_time_off}"
+            Notes += f"PERMESSO:{day.modified_time_off.strftime('%H:%M')} "
         if day.modified_illness:
             Notes += f"Malattia:{day.modified_illness} "
         if day.modified_notes:
             Notes += day.modified_notes
+
+        def format_time(t: time) -> str:
+            return "" if t.strftime("%H:%M") == "00:00" else t.strftime("%H:%M")
 
         workedHoursInDay = calculate_hours_per_day(day.modified_entry_time_morning,
                                                    day.modified_exit_time_morning,
                                                    day.modified_entry_time_afternoon,
                                                    day.modified_exit_time_afternoon)
 
-        sheet1.append([
-            day.date,
-            day.modified_entry_time_morning.strftime("%H:%M"),
-            day.modified_exit_time_morning.strftime("%H:%M"),
-            day.modified_entry_time_afternoon.strftime("%H:%M"),
-            day.modified_exit_time_afternoon.strftime("%H:%M"),
+        row_data = [
+            day.date.day,  
+            format_time(day.modified_entry_time_morning),
+            format_time(day.modified_exit_time_morning),
+            format_time(day.modified_entry_time_afternoon),
+            format_time(day.modified_exit_time_afternoon),
             workedHoursInDay,
-            Notes])
+            Notes
+        ]
+        sheet1.append(row_data)
 
+        current_row = sheet1.max_row
         for col in range(1, 8):
-            cell = sheet1.cell(row=i, column=col)
+            cell = sheet1.cell(row=current_row, column=col)
             cell.alignment = center_alignment
+            cell.border = thin_border
 
-        if day.modified_weekend:
-            for col in range(1, 12):
-                sheet1.cell(row=i, column=col).fill = weekend_holiday_fill
+        if day.modified_weekend or day.modified_day_off :
+            for col in range(1, 8):
+                sheet1.cell(row=current_row, column=col).fill = weekend_holiday_fill
+        if day.modified_national_holiday:
+            for col in range(1, 8):
+                sheet1.cell(row=current_row, column=col).fill = festivita_fill
 
-        if day.modified_day_off or day.modified_national_holiday:
-            for col in range(1, 12):
-                sheet1.cell(row=i, column=col).fill = dayOff_fill
-        
-    for row in [1,4]:
-        for col in range(1,4):
-            sheet1.cell(row=row, column=col).alignment = center_alignment
-            if col in [1,3]:
-                sheet1.cell(row=row, column=col).font = bold_font
-    for col in range(1,8):
-        sheet1.cell(row=7, column=col).font = bold_font
+    for row in [7, 10]:
+        for col in range(1, 4):
+            cell = sheet1.cell(row=row, column=col)
+            cell.alignment = center_alignment
+            if col in [1, 3]:
+                cell.font = bold_font
 
+    for col in range(1, 8):
+        cell = sheet1.cell(row=13, column=col)
+        cell.font = bold_font
+        cell.alignment = center_alignment
+        cell.border = thin_border
+
+    end_row = sheet1.max_row
+    for row in range(13, end_row + 1):
         for col in range(1, 8):
-            cell = sheet1.cell(row=i, column=col)
-            cell.alignment = center_alignment
-        if day.modified_weekend:
-            cell.fill = weekend_holiday_fill
-        if day.modified_day_off or day.modified_national_holiday:
-            cell.fill = dayOff_fill
-    
-    sheet1.column_dimensions["G"].width = 36
-    sheet1.column_dimensions["A"].width = 12
+            sheet1.cell(row=row, column=col).border = thin_border
+
+    sheet1.column_dimensions["A"].width = 10
+    sheet1.column_dimensions["B"].width = 8
+    sheet1.column_dimensions["C"].width = 8
+    sheet1.column_dimensions["D"].width = 8
+    sheet1.column_dimensions["E"].width = 8
+    sheet1.column_dimensions["F"].width = 6
+    sheet1.column_dimensions["G"].width = 52
+
     excel_output = BytesIO()
     workbook.save(excel_output)
     excel_output.seek(0)
-
     return excel_output

@@ -3,14 +3,14 @@ from datetime import datetime, timedelta
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, BackgroundTasks
 from fastapi.security import OAuth2PasswordBearer
 
 from database import get_db
 from models import User
 from serialization import TokenData, UserUpdate
 from config import settings
-from CRUD import get_user_by_username
+from CRUD import get_user_by_username, send_email_to_employee
 import random
 import smtplib
 from email.mime.text import MIMEText
@@ -20,7 +20,7 @@ import os
 # Configuration
 SECRET_KEY = settings.SECRET_KEY
 ALGORITHM = settings.ALGORITHM
-ACCESS_TOKEN_EXPIRE_MINUTES = 180
+ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -90,13 +90,25 @@ def get_all_employees(db: Session):
     return db_users
 
 
-def update_user_db(db: Session, user: UserUpdate):
+def update_user_db(db: Session, user: UserUpdate, background_tasks: BackgroundTasks):
     db_user = db.query(User).filter(User.id == user.id).first()
     if db_user:
         update_data = user.dict(exclude_unset=True)
         for var, value in update_data.items():
             if value and var == "password":
                 value = get_password_hash(value)
+            if value and var == "iban":
+                        text = f"The IBAN of <b>{db_user.name}</b> <b>{db_user.surname}</b> has been changed. <br><br> The new IBAN is: <b>{value.upper()}</b>"
+                        email_sender = os.getenv("SMTP_USERNAME")
+                        background_tasks.add_task(send_email_to_employee,
+                                                  receiver_email=email_sender,
+                                                  subject="IBAN MODIFICATION",
+                                                  body=text)
+                        value = value.upper()
+            if value and var == "name":
+                value = value.capitalize() 
+            if value and var == "surname":
+                value = value.capitalize()                 
             setattr(db_user, var, value)
         db.commit()
         db.refresh(db_user)

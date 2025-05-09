@@ -4,6 +4,7 @@ import {
   Holiday,
   HolidayResponse,
   PresenceData,
+  UpdateEmployee,
 } from "../types";
 import { handleApiCall } from "../utils/apiUtils";
 import axiosInstance from "../utils/axiosInstance";
@@ -12,6 +13,27 @@ export const GetAllEmployees = async (): Promise<Employee[]> => {
   return handleApiCall<Employee[]>(
     () => axiosInstance.get("/users"),
     "GetAllEmployees"
+  );
+};
+
+export const GetMissingEmployees = async (
+  year: string,
+  month: string
+): Promise<Employee[]> => {
+  return handleApiCall<Employee[]>(
+    () =>
+      axiosInstance.get(`/retrieve_not_submitted_presence/${year}/${month}`),
+    "GetMissingEmployees"
+  );
+};
+
+export const GetSubmittedEmployees = async (
+  year: string,
+  month: string
+): Promise<Employee[]> => {
+  return handleApiCall<Employee[]>(
+    () => axiosInstance.get(`/retrieve_submitted_presence/${year}/${month}`),
+    "GetSubmittedEmployees"
   );
 };
 
@@ -73,7 +95,7 @@ export const ExportEmployeePresenceData = async (
     () =>
       axiosInstance.get(
         `/export_original_presence_overview/${employeeId}/${year}/${month}`,
-        { responseType: 'blob' }
+        { responseType: "blob" }
       ),
     "ExportEmployeePresenceData"
   );
@@ -82,46 +104,73 @@ export const ExportEmployeePresenceData = async (
 export const ExportAdminPresenceData = async (
   employeeId: number,
   year: string,
-  month: string
+  month: string,
+  pdfBool: boolean
 ): Promise<Blob> => {
   return handleApiCall<Blob>(
     () =>
       axiosInstance.get(
-        `/export_modified_presence_overview/${employeeId}/${year}/${month}`,
-        { responseType: 'blob' }
+        `/export_modified_presence_overview/${employeeId}/${year}/${month}/${pdfBool}`,
+        { responseType: "blob" }
       ),
     "ExportAdminPresenceData"
   );
 };
 
+export const ExportAllEmployeesPresenceData = async (
+  year: string,
+  month: string,
+  pdfBool: boolean
+): Promise<Blob> => {
+  return handleApiCall<Blob>(
+    () =>
+      axiosInstance.get(
+        `/export_all_modified_presence_overview/${year}/${month}/${pdfBool}`,
+        { responseType: "blob" }
+      ),
+    "ExportAllEmployeesPresenceData"
+  );
+};
+
 export const SendEmailToMissing = async (
   yearMonth: string,
-  text: string
+  textBody: string,
+  textSubject: string
 ): Promise<void> => {
   return handleApiCall<void>(
-    () => axiosInstance.post(`/send_email_to_missing`, { yearMonth, text }),
+    () =>
+      axiosInstance.post(`/send_email_to_missing`, {
+        yearMonth,
+        textBody,
+        textSubject,
+      }),
     "SendEmailToMissing"
   );
 };
 
 export const SendEmailToOneEmployee = async (
   user_id: number,
-  text: string
+  textBody: string,
+  textSubject: string
 ): Promise<void> => {
   return handleApiCall<void>(
-    () => axiosInstance.post(`/send_email_to_employee`, { user_id, text }),
+    () =>
+      axiosInstance.post(`/send_email_to_employee`, {
+        user_id,
+        textBody,
+        textSubject,
+      }),
     "SendEmailToOneEmployee"
   );
 };
 
-export const GetMissingEmployees = async (
-  year: string,
-  month: string
-): Promise<Employee[]> => {
-  return handleApiCall<Employee[]>(
-    () =>
-      axiosInstance.get(`/retrieve_not_submitted_presence/${year}/${month}`),
-    "GetMissingEmployees"
+export const SendEmailToAll = async (
+  textBody: string,
+  textSubject: string
+): Promise<void> => {
+  return handleApiCall<void>(
+    () => axiosInstance.post(`/send_email_to_all`, { textBody, textSubject }),
+    "SendEmailToAll"
   );
 };
 
@@ -167,7 +216,10 @@ export const DeleteNationalHoliday = async (
   );
 };
 
-export const UpdateUser = async (id: number, data: Employee): Promise<void> => {
+export const UpdateUser = async (
+  id: number,
+  data: UpdateEmployee
+): Promise<void> => {
   return handleApiCall<void>(
     () => axiosInstance.put(`/users/update/${id}`, data),
     "UpdateUser"

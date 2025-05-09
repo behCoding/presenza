@@ -8,10 +8,23 @@
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/backend/CRUD.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/CRUD.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/backend/Dockerfile" beforeDir="false" afterPath="$PROJECT_DIR$/backend/Dockerfile" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/alembic.ini" beforeDir="false" afterPath="$PROJECT_DIR$/backend/alembic.ini" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/backend/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/migrations/env.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/migrations/env.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/models.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/backend/requirements.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/serialization.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/serialization.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/docker-compose.yml" beforeDir="false" afterPath="$PROJECT_DIR$/docker-compose.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/presence-tracker/src/components/AdminDashboard.js" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/presence-tracker/src/components/AdminDashboard.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/presence-tracker/src/components/CalendarComponent.js" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/presence-tracker/src/components/CalendarComponent.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/presence-tracker/src/api/adminApi.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/presence-tracker/src/api/adminApi.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/presence-tracker/src/api/loginApi.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/presence-tracker/src/api/loginApi.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/presence-tracker/src/components/EmployeePresenceSection.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/presence-tracker/src/components/EmployeePresenceSection.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/presence-tracker/src/components/ForgotPasswordModal.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/presence-tracker/src/components/ForgotPasswordModal.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/presence-tracker/src/components/Header.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/presence-tracker/src/components/Header.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/presence-tracker/src/components/NationalHolidaysTab.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/presence-tracker/src/components/NationalHolidaysTab.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/presence-tracker/src/components/PresenzaTab.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/presence-tracker/src/components/PresenzaTab.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/presence-tracker/src/components/UserManagementTab.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/presence-tracker/src/components/UserManagementTab.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/presence-tracker/src/pages/RegisterPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/presence-tracker/src/pages/RegisterPage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/presence-tracker/src/routes/PrivateRoutes.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/presence-tracker/src/routes/PrivateRoutes.tsx" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -37,7 +50,6 @@
   &quot;associatedIndex&quot;: 4
 }</component>
   <component name="ProjectId" id="2o6hPPB3K24LTY4WEhRWcBDbjsW" />
-  <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
@@ -54,7 +66,7 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-python-sdk-1b1018131e27-aa17d162503b-com.jetbrains.pycharm.community.sharedIndexes.bundled-PC-243.22562.180" />
+        <option value="bundled-python-sdk-348a24fa61fa-5312c7369657-com.jetbrains.pycharm.community.sharedIndexes.bundled-PC-251.23774.444" />
       </set>
     </attachedChunks>
   </component>

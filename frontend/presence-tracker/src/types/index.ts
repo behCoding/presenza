@@ -14,6 +14,7 @@ export interface RegisterInputs {
   password: string;
   confirmPassword: string;
   fullTime: boolean;
+  iban: string;
 }
 
 export interface RegisterApiBody {
@@ -40,6 +41,22 @@ export interface Employee {
   work_email: string;
   is_active: boolean;
   role: string;
+  iban: string;
+}
+
+export interface UpdateEmployee {
+  id: number;
+  name?: string;
+  surname?: string;
+  job_start_date?: string;
+  full_time?: boolean;
+  phone_number?: string;
+  personal_email?: string;
+  work_email?: string;
+  is_active?: boolean;
+  role?: string;
+  password?: string;
+  iban?: string;
 }
 
 export interface PresenceData {
@@ -75,6 +92,11 @@ export interface EmployeeOverview {
 
 export interface ExcelApiResponse {
   detail: string;
+}
+
+export interface EmailInputs {
+  emailSubject: string;
+  emailBody: string;
 }
 
 //EmployeePage

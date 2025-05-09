@@ -6,11 +6,34 @@ import { toast } from "react-toastify";
 import IntlTelInput from "intl-tel-input/reactWithUtils";
 import "intl-tel-input/build/css/intlTelInput.css";
 import { RegisterUser, SendOtp, VerifyOtp } from "../api/loginApi";
-import type { RegisterInputs } from "../types";
+import type { Employee, RegisterInputs, UpdateEmployee } from "../types";
 import ThemeContext from "../context/ThemeContext";
 import OtpPopup from "../components/OtpPopup";
+import { UpdateUser } from "../api/adminApi";
 
-const RegisterPage: React.FC = () => {
+interface RegisterPageProps {
+  isUpdate?: boolean;
+  employeeDetails?: Employee;
+}
+
+const initialState = {
+  id: 0,
+  name: "",
+  surname: "",
+  job_start_date: "",
+  full_time: false,
+  phone_number: "",
+  personal_email: "",
+  work_email: "",
+  is_active: false,
+  role: "",
+  iban: "",
+};
+
+const RegisterPage: React.FC<RegisterPageProps> = ({
+  isUpdate = false,
+  employeeDetails = initialState,
+}) => {
   const { theme } = useContext(ThemeContext);
   const isDark = theme === "dark";
 
@@ -21,12 +44,25 @@ const RegisterPage: React.FC = () => {
     watch,
     setFocus,
     reset,
-    clearErrors,
     formState: { errors },
-  } = useForm<RegisterInputs>();
+  } = useForm<RegisterInputs>({
+    defaultValues: {
+      name: employeeDetails.name ?? "",
+      surname: employeeDetails.surname ?? "",
+      jobStartDate: employeeDetails.job_start_date ?? "",
+      phoneNumber: employeeDetails.phone_number ?? "",
+      personalEmail: employeeDetails.personal_email ?? "",
+      workEmail: employeeDetails.work_email ?? "",
+      password: "",
+      confirmPassword: "",
+      fullTime: employeeDetails.full_time ?? false,
+      iban: employeeDetails.iban ?? "",
+    },
+  });
   const navigate = useNavigate();
   const emailSuffix = "@storelink.it";
-  const [workEmail, setWorkEmail] = useState("");
+  const employeeId = Number(localStorage.getItem("user_id"));
+  const [workEmail, setWorkEmail] = useState(employeeDetails.work_email ?? "");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isValidPhone, setIsValidPhone] = useState<boolean | null>(null);
   const [showOtpPopup, setShowOtpPopup] = useState(false);
@@ -44,11 +80,13 @@ const RegisterPage: React.FC = () => {
 
   const handleNumberChange = (number: string) => {
     setValue("phoneNumber", number);
+    setIsValidPhone(number.length > 0);
   };
 
   const handleWorkEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setWorkEmail(value);
+    setValue("workEmail", value);
     setShowSuggestions(value.length > 3 && !value.includes("@"));
 
     if (isEmailVerified) {
@@ -67,8 +105,7 @@ const RegisterPage: React.FC = () => {
     if (e.key === "Enter" && showSuggestions) {
       e.preventDefault();
       handleSuggestionClick();
-      clearErrors("workEmail");
-      setFocus("password");
+      setFocus("iban");
     }
   };
 
@@ -83,54 +120,67 @@ const RegisterPage: React.FC = () => {
     setIsRegistering(false);
   };
 
-  const handleRegister: SubmitHandler<RegisterInputs> = async (data) => {
-    if (formPassword.length < 8) {
-      toast.error("Password must be at least 8 characters long");
-      return;
-    }
-
-    if (!/[A-Z]/.test(formPassword)) {
-      toast.error("Password must contain at least one uppercase letter");
-      return;
-    }
-
-    if (!/[0-9]/.test(formPassword)) {
-      toast.error("Password must contain at least one number");
-      return;
-    }
-
-    if (!/[!@#$%^&*]/.test(formPassword)) {
-      toast.error(
-        "Password must contain at least one special character (!@#$%^&*)"
-      );
-      return;
-    }
-
-    if (formPassword !== confirmFormPassword) {
-      toast.error("Passwords do not match.");
-      return;
-    }
-
-    if (!isValidPhone) {
-      toast.error("Please enter a valid phone number.");
-      return;
-    }
-
+  const handleButtonClick: SubmitHandler<RegisterInputs> = async (data) => {
     setIsRegistering(true);
 
-    if (!isEmailVerified) {
-      if (!workEmail || !workEmail.endsWith(emailSuffix)) {
-        toast.error(`Email must end with ${emailSuffix}`);
+    const shouldValidatePassword = !isUpdate || (isUpdate && data.password);
+
+    if (shouldValidatePassword) {
+      if (data.password.length < 8) {
+        toast.error("Password must be at least 8 characters long");
+        setIsRegistering(false);
         return;
       }
 
-      await SendOtp(workEmail);
-      toast.info(`Verification code sent to ${workEmail}`);
-      setShowOtpPopup(true);
-      return;
+      if (!/[A-Z]/.test(data.password)) {
+        toast.error("Password must contain at least one uppercase letter");
+        setIsRegistering(false);
+        return;
+      }
+
+      if (!/[0-9]/.test(data.password)) {
+        toast.error("Password must contain at least one number");
+        setIsRegistering(false);
+        return;
+      }
+
+      if (!/[!@#$%^&*]/.test(data.password)) {
+        toast.error(
+          "Password must contain at least one special character (!@#$%^&*)"
+        );
+        setIsRegistering(false);
+        return;
+      }
+
+      if (formPassword !== confirmFormPassword) {
+        toast.error("Passwords do not match.");
+        setIsRegistering(false);
+        return;
+      }
     }
 
-    const body = {
+    if (!isUpdate) {
+      if (!isValidPhone) {
+        toast.error("Please enter a valid phone number.");
+        setIsRegistering(false);
+        return;
+      }
+
+      if (!isEmailVerified) {
+        if (!workEmail || !workEmail.endsWith(emailSuffix)) {
+          toast.error(`Email must end with ${emailSuffix}`);
+          setIsRegistering(false);
+          return;
+        }
+        await SendOtp(workEmail);
+        toast.info(`Verification code sent to ${workEmail}`);
+        setShowOtpPopup(true);
+        setIsRegistering(false);
+        return;
+      }
+    }
+
+    const registerBody = {
       name: data.name,
       surname: data.surname,
       job_start_date: new Date(data.jobStartDate).toLocaleDateString("en-CA"),
@@ -139,19 +189,90 @@ const RegisterPage: React.FC = () => {
       personal_email: data.personalEmail,
       work_email: data.workEmail,
       password: data.password,
+      iban: data.iban,
+    };
+
+    const updateBody: UpdateEmployee = {
+      id: employeeId,
+      is_active: employeeDetails?.is_active,
+      role: employeeDetails?.role,
+    };
+
+    updateBody.id = employeeId;
+
+    if (data.name !== "" && data.name !== employeeDetails?.name) {
+      updateBody.name = data.name;
+    }
+    if (data.surname !== "" && data.surname !== employeeDetails?.surname) {
+      updateBody.surname = data.surname;
+    }
+    if (
+      data.jobStartDate !== "" &&
+      data.jobStartDate !== employeeDetails?.job_start_date
+    ) {
+      updateBody.job_start_date = new Date(
+        data.jobStartDate
+      ).toLocaleDateString("en-CA");
+    }
+    if (data.fullTime !== employeeDetails?.full_time) {
+      updateBody.full_time = data.fullTime;
+    }
+    if (
+      data.phoneNumber !== "" &&
+      data.phoneNumber !== employeeDetails?.phone_number
+    ) {
+      updateBody.phone_number = data.phoneNumber;
+    }
+    if (
+      data.personalEmail !== "" &&
+      data.personalEmail !== employeeDetails?.personal_email
+    ) {
+      updateBody.personal_email = data.personalEmail;
+    }
+    if (
+      data.workEmail !== "" &&
+      data.workEmail !== employeeDetails?.work_email
+    ) {
+      updateBody.work_email = data.workEmail;
+    }
+    if (data.password) {
+      updateBody.password = data.password;
+    }
+    if (data.iban !== "" && data.iban !== employeeDetails?.iban) {
+      updateBody.iban = data.iban;
+    }
+    if (
+      data.phoneNumber !== "" &&
+      data.phoneNumber !== employeeDetails?.phone_number
+    ) {
+      updateBody.phone_number = data.phoneNumber;
+    }
+
+    const apiCall = async () => {
+      if (!isUpdate) {
+        await RegisterUser(registerBody);
+      } else {
+        await UpdateUser(employeeId, updateBody);
+      }
     };
 
     try {
-      console.log("Register", body);
-      await toast.promise(RegisterUser(body), {
-        pending: "Registering...",
-        success: "Registration successfull! Please log in.",
-        error: "Registration failed. Please try again.",
+      await toast.promise(apiCall(), {
+        pending: isUpdate ? "Updating..." : "Registering...",
+        success: isUpdate
+          ? "Updated successfully!"
+          : "Registration successfull! Please log in.",
+        error: isUpdate
+          ? "Update failed. Please try again."
+          : "Registration failed. Please try again.",
       });
       reset();
-      navigate("/login");
+      navigate(isUpdate ? "/" : "/login");
     } catch (error) {
-      console.error("Registration failed:", error);
+      console.error(
+        isUpdate ? "Update failed:" : "Registration failed:",
+        error
+      );
     } finally {
       setIsRegistering(false);
     }
@@ -163,6 +284,14 @@ const RegisterPage: React.FC = () => {
   const labelClasses = `block text-left text-sm font-medium mb-1.5 ${
     isDark ? "text-gray-300" : "text-gray-700"
   }`;
+
+  const buttonName = isUpdate
+    ? "Save Data"
+    : !isEmailVerified
+    ? "Verify Email"
+    : isRegistering
+    ? "Registering..."
+    : "Register";
 
   return (
     <div
@@ -184,10 +313,12 @@ const RegisterPage: React.FC = () => {
               isDark ? "text-white" : "text-gray-800"
             } mb-2`}
           >
-            Create Your Account
+            {`${!isUpdate ? "Create" : "Update"} Your Account`}
           </h2>
           <p className={`${isDark ? "text-gray-400" : "text-gray-600"}`}>
-            Fill in your information to get started
+            {`Fill in your information to ${
+              !isUpdate ? "get started" : "update"
+            }`}
           </p>
         </div>
 
@@ -202,7 +333,7 @@ const RegisterPage: React.FC = () => {
               type="text"
               placeholder="Enter your first name"
               autoComplete="off"
-              {...register("name", { required: true })}
+              {...register("name", { required: !isUpdate })}
               className={`${inputClasses} ${
                 errors.name ? "border-red-500 focus:ring-red-500" : ""
               }`}
@@ -214,7 +345,7 @@ const RegisterPage: React.FC = () => {
               type="text"
               placeholder="Enter your last name"
               autoComplete="off"
-              {...register("surname", { required: true })}
+              {...register("surname", { required: !isUpdate })}
               className={`${inputClasses} ${
                 errors.surname ? "border-red-500 focus:ring-red-500" : ""
               }`}
@@ -224,7 +355,7 @@ const RegisterPage: React.FC = () => {
             <label className={labelClasses}>Job Start Date</label>
             <input
               type="date"
-              {...register("jobStartDate", { required: true })}
+              {...register("jobStartDate", { required: !isUpdate })}
               className={`${inputClasses} ${
                 errors.jobStartDate ? "border-red-500 focus:ring-red-500" : ""
               }`}
@@ -241,6 +372,7 @@ const RegisterPage: React.FC = () => {
               onClick={() => setFocus("phoneNumber")}
             >
               <IntlTelInput
+                initialValue={employeeDetails.phone_number ?? ""}
                 onChangeNumber={handleNumberChange}
                 onChangeValidity={setIsValidPhone}
                 initOptions={{
@@ -253,7 +385,7 @@ const RegisterPage: React.FC = () => {
                     isDark ? "text-white" : "text-gray-900"
                   }`,
                 }}
-                {...register("phoneNumber", { required: true })}
+                {...register("phoneNumber", { required: !isUpdate })}
               />
             </div>
           </div>
@@ -263,7 +395,7 @@ const RegisterPage: React.FC = () => {
               type="email"
               placeholder="Enter your personal email"
               autoComplete="off"
-              {...register("personalEmail", { required: true })}
+              {...register("personalEmail", { required: !isUpdate })}
               className={`${inputClasses} ${
                 errors.personalEmail ? "border-red-500 focus:ring-red-500" : ""
               }`}
@@ -284,7 +416,7 @@ const RegisterPage: React.FC = () => {
                   type="email"
                   placeholder="Enter your work email"
                   autoComplete="off"
-                  {...register("workEmail", { required: true })}
+                  {...register("workEmail", { required: !isUpdate })}
                   value={workEmail}
                   onChange={handleWorkEmailChange}
                   onFocus={() => setWorkEmailFocus(true)}
@@ -329,6 +461,18 @@ const RegisterPage: React.FC = () => {
               )}
             </div>
           </div>
+          <div className="md:col-span-2">
+            <label className={labelClasses}>IBAN</label>
+            <input
+              type="email"
+              placeholder="Enter your IBAN"
+              autoComplete="off"
+              {...register("iban", { required: !isUpdate })}
+              className={`${inputClasses} ${
+                errors.personalEmail ? "border-red-500 focus:ring-red-500" : ""
+              }`}
+            />
+          </div>
           <div>
             <label className={labelClasses}>Password</label>
             <div
@@ -343,7 +487,7 @@ const RegisterPage: React.FC = () => {
                 type={showPassword ? "text" : "password"}
                 placeholder="Create a password"
                 autoComplete="off"
-                {...register("password", { required: true })}
+                {...register("password", { required: !isUpdate })}
                 onFocus={() => setPasswordFocus(true)}
                 onBlur={() => setPasswordFocus(false)}
                 className={`border-0 w-full focus:outline-none`}
@@ -411,7 +555,7 @@ const RegisterPage: React.FC = () => {
                 type={showConfirmPassword ? "text" : "password"}
                 placeholder="Confirm your password"
                 autoComplete="off"
-                {...register("confirmPassword", { required: true })}
+                {...register("confirmPassword", { required: !isUpdate })}
                 onFocus={() => setConfirmPasswordFocus(true)}
                 onBlur={() => setConfirmPasswordFocus(false)}
                 className={`border-0 w-full focus:outline-none`}
@@ -482,11 +626,11 @@ const RegisterPage: React.FC = () => {
         </form>
         <button
           type="submit"
-          onClick={handleSubmit(handleRegister)}
+          onClick={handleSubmit(handleButtonClick)}
           disabled={isRegistering}
           className={`w-full cursor-pointer p-3 text-white text-lg font-medium rounded-lg transition-all duration-300 bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 shadow-sm`}
         >
-          {isRegistering ? "Registering..." : "Register"}
+          {buttonName}
         </button>
       </div>
 

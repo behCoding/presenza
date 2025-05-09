@@ -1,4 +1,8 @@
 import copy
+import os
+import subprocess
+from io import BytesIO
+import tempfile
 from fastapi import Body, FastAPI, Query, Path, BackgroundTasks, Response, Form
 from pydantic import EmailStr
 from fastapi.exceptions import RequestValidationError
@@ -9,6 +13,7 @@ from auth import get_password_hash, authenticate_user, \
 from config import ACCESS_TOKEN_EXPIRE_MINUTES
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import Depends, HTTPException, status, Request
+from fastapi.responses import FileResponse 
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
@@ -16,10 +21,11 @@ from database import get_db
 from models import User, NationalHolidays, AdminModifiedPresence
 from datetime import datetime, timedelta, time
 from typing import List
+import zipfile
 from models import DailyPresence
-from serialization import UserCreate, Token, UserUpdate, DailyPresenceBase, HoursDefaultBase, UserBase, UserBaseID, \
+from serialization import EmailRequestAll, UserCreate, Token, UserPresence, UserUpdate, DailyPresenceBase, HoursDefaultBase, UserBase, UserBaseID, \
     EmailRequest, EmailRequestPerUser, ModifiedDailyPresenceBase, PasswordChangeRequest, EmailOTPRequest, OTPVerifyRequest
-from CRUD import get_daily_presences, get_user_default_hours, create_default_hours, get_user_by_id, get_hour_minute, \
+from CRUD import get_daily_presences, get_user_default_hours, create_default_hours, get_user_by_id, get_hour_minute, has_admin_submitted_presence, \
     has_submitted_presence, send_email_to_employee, calculate_hours_per_day, create_excel_original, create_excel_modified
 
 
@@ -49,9 +55,9 @@ async def register(user: UserCreate, db: Session = Depends(get_db)):
     if db_user:
         raise HTTPException(status_code=400, detail="A user with this email is already registered in the system")
     hashed_password = get_password_hash(user.password)
-    new_user = User(name=str.lower(user.name), surname=str.lower(user.surname), job_start_date=user.job_start_date,
+    new_user = User(name=str.capitalize(user.name), surname=str.capitalize(user.surname), job_start_date=user.job_start_date,
                     full_time=user.full_time, phone_number=str(user.phone_number), personal_email=str.lower(user.personal_email),
-                    work_email=str.lower(user.work_email), password=hashed_password, role=user.role)
+                    work_email=str.lower(user.work_email), password=hashed_password, role=user.role, iban=str.upper(user.iban))
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
@@ -65,6 +71,12 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User is disabled",
             headers={"WWW-Authenticate": "Bearer"},
         )
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -83,8 +95,8 @@ def delete_user(user_id: int, db: Session = Depends(get_db), current_user: User 
 
 
 @app.put("/users/update/{user_id}", response_model=UserUpdate)
-async def update_user(user: UserUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    updated_user = update_user_db(db=db, user=user)
+async def update_user(background_tasks: BackgroundTasks, user: UserUpdate, db: Session = Depends(get_db)):
+    updated_user = update_user_db(db=db, user=user, background_tasks=background_tasks)
     if not updated_user:
         raise HTTPException(status_code=404, detail="User not found")
     return updated_user
@@ -112,8 +124,6 @@ async def fetch_user(db: Session = Depends(get_db),
                      current_user: User = Depends(get_current_user),
                      employeeId: int = Path(..., description="ID of the employee to retrieve")):
 
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Not authorized")
     return get_user_by_id(db=db, user_id=employeeId)
 
 
@@ -174,7 +184,7 @@ def create_update_monthly_presence(
             .first()
         )
 
-        if day_data.day_off or day_data.national_holiday:
+        if day_data.day_off or day_data.national_holiday or day_data.weekend:
             day_data.entry_time_morning = time(0, 0)
             day_data.exit_time_morning = time(0, 0)
             day_data.entry_time_afternoon = time(0, 0)
@@ -289,7 +299,7 @@ def update_monthly_presence(
             .first()
         )
 
-        if day_data.day_off or day_data.national_holiday:
+        if day_data.day_off or day_data.national_holiday or day_data.weekend:
             day_data.entry_time_morning = time(0, 0)
             day_data.exit_time_morning = time(0, 0)
             day_data.entry_time_afternoon = time(0, 0)
@@ -516,7 +526,7 @@ def retrieve_not_submitted_presence(month: str,
     return missing_employees
 
 
-@app.get("/retrieve_submitted_presence/{year}/{month}", response_model=List[UserBase])
+@app.get("/retrieve_submitted_presence/{year}/{month}", response_model=List[UserPresence])
 def retrieve_submitted_presence(month: str,
                                 year: str,
                                 db: Session = Depends(get_db)):
@@ -527,7 +537,6 @@ def retrieve_submitted_presence(month: str,
     for employee in allEmployees:
         if has_submitted_presence(employee.id, year=year, month=month, db=db):
             submitted_employees.append(employee)
-
     return submitted_employees
 
 
@@ -536,7 +545,6 @@ def send_email_to_missing(request: EmailRequest,
                background_tasks: BackgroundTasks,
                db: Session = Depends(get_db)):
     year, month = request.yearMonth.split("-")
-    text = request.text
 
     allEmployees = get_all_employees(db)
 
@@ -548,10 +556,27 @@ def send_email_to_missing(request: EmailRequest,
         background_tasks.add_task(
             send_email_to_employee,
             receiver_email=employee.work_email,
-            subject="Attendance Submission Reminder",
-            body=text)
+            subject= request.textSubject,
+            body=request.textBody)
 
     return missing_employees
+
+
+@app.post("/send_email_to_all", response_model=List[UserBase])
+def send_email_to_all(request: EmailRequestAll,
+                          background_tasks: BackgroundTasks,
+                          db: Session = Depends(get_db)):
+
+    allEmployees = get_all_employees(db)
+
+    for employee in allEmployees:
+        background_tasks.add_task(
+            send_email_to_employee,
+            receiver_email=employee.work_email,
+            subject=request.textSubject,
+            body=request.textBody)
+
+    return allEmployees
 
 
 @app.post("/send_email_to_employee", response_model=UserBase)
@@ -559,13 +584,12 @@ def send_email_to_one(request: EmailRequestPerUser,
                       background_tasks: BackgroundTasks,
                       db: Session = Depends(get_db)):
     userID = request.user_id
-    text = request.text
     employee = db.query(User).filter(User.id == userID).first()
     background_tasks.add_task(
         send_email_to_employee,
         receiver_email=employee.work_email,
-        subject="Attendance Submission Reminder",
-        body=text)
+        subject=request.textSubject,
+        body=request.textBody)
 
     return employee
 
@@ -641,8 +665,8 @@ def export_presence_overview(user_id: int, year: str, month: str, db: Session = 
         raise HTTPException(status_code=404, detail="Data is not present for current month")
 
 
-@app.get("/export_modified_presence_overview/{user_id}/{year}/{month}")
-def export_presence_overview(user_id: int, year: str, month: str, db: Session = Depends(get_db)):
+@app.get("/export_modified_presence_overview/{user_id}/{year}/{month}/{pdfBool}")
+def export_presence_overview(user_id: int, year: str, month: str,pdfBool:bool, db: Session = Depends(get_db)):
     if month == '12':
         presence_data = (
         db.query(AdminModifiedPresence)
@@ -660,13 +684,100 @@ def export_presence_overview(user_id: int, year: str, month: str, db: Session = 
     employee = db.query(User).filter(User.id == user_id).first()
     if presence_data:
         excel_output = create_excel_modified(presence_data, employee)
+        filename_base = f"presence_overview_{year}_{month}_{employee.name}_{employee.surname}"
+        temp_excel_path = f"/tmp/{filename_base}.xlsx"
+        with open(temp_excel_path, "wb") as f:
+            f.write(excel_output.getvalue())
 
-        headers = {
-            'Content-Disposition': f'attachment; filename="presence_overview_{year}_{month}_{employee.name}_{employee.surname}.xlsx"'
-        }
-        return Response(content=excel_output.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers=headers)
+        if pdfBool:
+            convert_command = [
+                "libreoffice", "--headless", "--convert-to", "pdf", "--outdir", "/tmp", temp_excel_path]
+            result = subprocess.run(convert_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+            if result.returncode != 0:
+                raise HTTPException(status_code=500, detail="Failed to convert Excel to PDF.")
+
+            pdf_path = f"/tmp/{filename_base}.pdf"
+            if not os.path.exists(pdf_path):
+                raise HTTPException(status_code=500, detail="PDF file not generated.")
+
+            return FileResponse(path=pdf_path, filename=f"{filename_base}.pdf", media_type="application/pdf")
+        
+        else:
+            headers = {
+                'Content-Disposition': f'attachment; filename="{filename_base}.xlsx"'
+            }
+            return Response(content=excel_output.getvalue(),
+                            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            headers=headers)
+
     else:        
         raise HTTPException(status_code=404, detail="Data is not present for current month")
+    
+
+@app.get("/export_all_modified_presence_overview/{year}/{month}/{pdfBool}")
+def export_presence_overview(year: str, month: str,pdfBool:bool, db: Session = Depends(get_db)):
+    allEmployees = get_all_employees(db)
+    submitted_employees = []
+    for employee in allEmployees:
+        if has_admin_submitted_presence(employee.id, year=year, month=month, db=db):
+            submitted_employees.append(employee)
+    zip_buffer = BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+        for employee in submitted_employees:
+            if month == '12':
+                end_day = 31
+            else:
+                end_day = (datetime(int(year), int(month) + 1, 1) - timedelta(days=1)).day
+            
+            presence_data = (
+                db.query(AdminModifiedPresence)
+                .filter(
+                    AdminModifiedPresence.employee_id == employee.id,
+                    AdminModifiedPresence.date >= datetime.strptime(year + month, "%Y%m"),
+                    AdminModifiedPresence.date <= datetime(int(year), int(month), end_day)
+                )
+                .order_by(AdminModifiedPresence.date)
+                .all()
+            )
+
+            if presence_data:
+                filename_base = f"presence_overview_{year}_{month}_{employee.name}_{employee.surname}"
+
+                excel_output = create_excel_modified(presence_data, employee)
+                zip_file.writestr(f"{filename_base}.xlsx", excel_output.getvalue())
+
+                if pdfBool:
+                    # Save Excel to temp file
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp_excel:
+                        tmp_excel.write(excel_output.getvalue())
+                        tmp_excel.flush()
+                        tmp_excel_path = tmp_excel.name
+
+                    convert_cmd = [
+                        "libreoffice", "--headless", "--convert-to", "pdf",
+                        "--outdir", tempfile.gettempdir(), tmp_excel_path
+                    ]
+                    result = subprocess.run(convert_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+                    if result.returncode != 0:
+                        raise HTTPException(status_code=500, detail="Failed to convert Excel to PDF.")
+
+                    pdf_path = os.path.join(
+                        tempfile.gettempdir(),
+                        f"{os.path.splitext(os.path.basename(tmp_excel_path))[0]}.pdf"
+                    )
+                    with open(pdf_path, "rb") as pdf_file:
+                        zip_file.writestr(f"{filename_base}.pdf", pdf_file.read())
+
+                    os.remove(tmp_excel_path)
+                    os.remove(pdf_path)
+
+    zip_buffer.seek(0)
+
+    headers = {'Content-Disposition': f'attachment; filename="presence_overview_{year}_{month}.zip"'}
+
+    return Response(content=zip_buffer.getvalue(), media_type="application/x-zip-compressed", headers=headers)
     
 
 """@app.exception_handler(RequestValidationError)

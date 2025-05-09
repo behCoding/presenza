@@ -1,22 +1,58 @@
+"use client";
+
 import type React from "react";
-import { useState, useEffect, useCallback, useContext } from "react";
+import { useState, useEffect, useCallback, useContext, useRef } from "react";
 import {
   ExportAdminPresenceData,
+  ExportAllEmployeesPresenceData,
   ExportEmployeePresenceData,
-  GetAllEmployees,
   GetMissingEmployees,
+  GetSubmittedEmployees,
+  SendEmailToAll,
   SendEmailToMissing,
   SendEmailToOneEmployee,
 } from "../api/adminApi";
-import type { Employee } from "../types";
+import type { EmailInputs, Employee } from "../types";
 import { toast } from "react-toastify";
 import EmployeePresenceSection from "./EmployeePresenceSection";
 import ThemeContext from "../context/ThemeContext";
 import axios from "axios";
+import { TextField, IconButton, Menu, MenuItem } from "@mui/material";
+import { useForm } from "react-hook-form";
+import { Clear } from "@mui/icons-material";
+
+type DownloadableFileType = "excel" | "pdf" | "zip";
+
+const months = [
+  "Gennaio",
+  "Febbraio",
+  "Marzo",
+  "Aprile",
+  "Maggio",
+  "Giugno",
+  "Luglio",
+  "Agosto",
+  "Settembre",
+  "Ottobre",
+  "Novembre",
+  "Dicembre",
+];
 
 const PresenzaTab: React.FC = () => {
   const { theme } = useContext(ThemeContext);
   const isDark = theme === "dark";
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<EmailInputs>({
+    defaultValues: {
+      emailSubject: "Please submit your presence",
+      emailBody:
+        "Hello,\nPlease ensure that you have submitted your attendance presence.\nKind Regards,\nAdminstration",
+    },
+  });
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [selectedYear, setSelectedYear] = useState<string>(
     new Date().getFullYear().toString()
@@ -26,20 +62,29 @@ const PresenzaTab: React.FC = () => {
   );
   const [employeeDetails, setEmployeeDetails] = useState<Employee | null>(null);
   const [missingEmployees, setMissingEmployees] = useState<Employee[]>([]);
-  const [emailText, setEmailText] = useState<string>(
-    "Hello,\nPlease ensure that you have submitted your attendance presence.\nKind Regards,\nAdminstration"
+  const [searchText, setSearchText] = useState("");
+
+  // Refs and state for export dropdown menus
+  const adminExportRef = useRef<HTMLButtonElement>(null);
+  const allEmployeesExportRef = useRef<HTMLButtonElement>(null);
+
+  const [adminExportMenu, setAdminExportMenu] = useState<null | HTMLElement>(
+    null
   );
+  const [allEmployeesExportMenu, setAllEmployeesExportMenu] =
+    useState<null | HTMLElement>(null);
 
   const handleEmployeeSelect = (employee: Employee) => {
     setEmployeeDetails(employee);
   };
 
-  const fetchEmployees = useCallback(async () => {
-    const employeesData: Employee[] = await GetAllEmployees();
-    console.log("empl", employeesData);
-
+  const fetchSubmittedEmployees = useCallback(async () => {
+    const employeesData: Employee[] = await GetSubmittedEmployees(
+      selectedYear,
+      selectedMonth
+    );
     setEmployees(employeesData);
-  }, []);
+  }, [selectedYear, selectedMonth]);
 
   const fetchMissingEmployees = useCallback(async () => {
     if (!selectedYear || !selectedMonth) return;
@@ -47,13 +92,42 @@ const PresenzaTab: React.FC = () => {
     setMissingEmployees(missing);
   }, [selectedYear, selectedMonth]);
 
-  const downloadExcelFile = (
+  const handleSeachEmployees = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchText(e.target.value);
+  };
+
+  const clearSearch = () => {
+    setSearchText("");
+  };
+
+  const downloadFile = (
     data: ArrayBuffer | BlobPart,
-    filename: string
+    filename: string,
+    fileType?: DownloadableFileType
   ): void => {
-    const blob = new Blob([data], {
-      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    });
+    const typeMap: Record<DownloadableFileType, { mime: string; ext: string }> =
+      {
+        excel: {
+          mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          ext: ".xlsx",
+        },
+        pdf: {
+          mime: "application/pdf",
+          ext: ".pdf",
+        },
+        zip: {
+          mime: "application/zip",
+          ext: ".zip",
+        },
+      };
+
+    const config = fileType ? typeMap[fileType] : typeMap["excel"];
+
+    if (fileType && !filename.endsWith(config.ext)) {
+      filename = `${filename}${config.ext}`;
+    }
+
+    const blob = new Blob([data], { type: config.mime });
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -64,7 +138,7 @@ const PresenzaTab: React.FC = () => {
     window.URL.revokeObjectURL(url);
   };
 
-  const handleEmployeeExportExcel = async () => {
+  const handleEmployeeExport = async () => {
     if (!employeeDetails || !selectedYear || !selectedMonth) {
       toast.info(
         "Please select an employee, year, and month before exporting."
@@ -74,15 +148,14 @@ const PresenzaTab: React.FC = () => {
 
     try {
       const response = await ExportEmployeePresenceData(
-        employeeDetails?.id,
+        employeeDetails.id,
         selectedYear,
         selectedMonth
       );
 
-        
-      downloadExcelFile(
+      downloadFile(
         response,
-        `employee_presence_report_${selectedYear}_${selectedMonth}_${employeeDetails.name}_${employeeDetails.surname}.xlsx`
+        `employee_presence_report_${selectedYear}_${selectedMonth}_${employeeDetails.name}_${employeeDetails.surname}`
       );
     } catch (error) {
       if (axios.isAxiosError(error) && error.response?.data?.detail) {
@@ -94,7 +167,7 @@ const PresenzaTab: React.FC = () => {
     }
   };
 
-  const handleAdminExportExcel = async () => {
+  const handleAdminExport = async (fileType: "excel" | "pdf") => {
     if (!employeeDetails || !selectedYear || !selectedMonth) {
       toast.info(
         "Please select an employee, year, and month before exporting."
@@ -102,17 +175,25 @@ const PresenzaTab: React.FC = () => {
       return;
     }
 
+    toast.loading("Exporting...");
+
     try {
       const response = await ExportAdminPresenceData(
-        employeeDetails?.id,
+        employeeDetails.id,
         selectedYear,
-        selectedMonth
+        selectedMonth,
+        fileType === "pdf"
       );
 
-      downloadExcelFile(
+      downloadFile(
         response,
-        `admin_presence_report_${selectedYear}_${selectedMonth}_${employeeDetails.name}_${employeeDetails.surname}.xlsx`
+        `${selectedMonth}_${months[Number(selectedMonth) - 1]}_Presenze_${
+          employeeDetails.name
+        }_${employeeDetails.surname}`,
+        fileType
       );
+
+      toast.dismiss();
     } catch (error) {
       if (axios.isAxiosError(error) && error.response?.data?.detail) {
         toast.info(error.response.data.detail);
@@ -123,32 +204,83 @@ const PresenzaTab: React.FC = () => {
     }
   };
 
-  const handleSendEmail = async (id?: number) => {
-    if (!selectedYear || !selectedMonth) {
-      toast.info("Please select a year and a month first.");
-      return;
+  const handleAllEmployeesExport = async (fileType: "excel" | "pdf") => {
+    toast.loading("Exporting...");
+
+    try {
+      const response = await ExportAllEmployeesPresenceData(
+        selectedYear,
+        selectedMonth,
+        fileType === "pdf"
+      );
+
+      downloadFile(
+        response,
+        `${selectedMonth}_${months[Number(selectedMonth) - 1]}_Presenze_All`,
+        "zip"
+      );
+
+      toast.dismiss();
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.data?.detail) {
+        toast.info(error.response.data.detail);
+      } else {
+        console.error("Employee export failed:", error);
+        toast.error("Employee export failed");
+      }
     }
+  };
 
-    const apiCall = id
-      ? SendEmailToOneEmployee(id, emailText)
-      : SendEmailToMissing(`${selectedYear}-${selectedMonth}`, emailText);
-
-    toast.promise(apiCall, {
+  const handleSendEmail = async (id: number, data: EmailInputs) => {
+    const apiCall = async () => {
+      if (id === 1 && employeeDetails) {
+        await SendEmailToOneEmployee(
+          employeeDetails.id,
+          data.emailBody,
+          data.emailSubject
+        );
+      } else if (id === 2) {
+        await SendEmailToMissing(
+          `${selectedYear}-${selectedMonth}`,
+          data.emailBody,
+          data.emailSubject
+        );
+      } else if (id === 3) {
+        await SendEmailToAll(data.emailBody, data.emailSubject);
+      }
+    };
+    toast.promise(apiCall(), {
       pending: "Sending...",
-      success: id
-        ? `Email sent to ${employeeDetails?.name}`
-        : `Emails sent to all missing employees!`,
-      error: `Failed to send ${id ? "email" : "emails"}. Please try again.`,
+      success: `${id === 1 ? "Email" : "Emails"} sent successfully!`,
+      error: `Failed to send ${
+        id === 1 ? "email" : "emails"
+      }. Please try again.`,
     });
   };
 
   useEffect(() => {
-    fetchEmployees();
-  }, [fetchEmployees]);
+    fetchSubmittedEmployees();
+  }, [fetchSubmittedEmployees]);
 
   useEffect(() => {
     fetchMissingEmployees();
   }, [fetchMissingEmployees]);
+
+  const filteredEmployees = searchText.trim()
+    ? employees.filter(
+        (employee) =>
+          employee.name.toLowerCase().includes(searchText.toLowerCase()) ||
+          employee.surname.toLowerCase().includes(searchText.toLowerCase())
+      )
+    : employees;
+
+  // Input styling
+  const inputClasses = `w-full border ${
+    isDark ? "border-gray-600 text-white" : "border-gray-300 text-gray-900"
+  } rounded-lg p-2.5 focus:outline-none focus:ring-1 focus:ring-teal-500 focus:border-teal-500`;
+  const labelClasses = `block text-left text-sm font-medium mb-1.5 ${
+    isDark ? "text-gray-300" : "text-gray-700"
+  }`;
 
   // Common button class for consistent styling
   const buttonClass =
@@ -235,7 +367,7 @@ const PresenzaTab: React.FC = () => {
         </div>
       </div>
 
-      {/* Missing Employees Section */}
+      {/* Missing Presence Section */}
       <div
         className={`${
           isDark ? "bg-gray-800" : "bg-gray-50"
@@ -248,7 +380,7 @@ const PresenzaTab: React.FC = () => {
               : "text-teal-600 border-gray-200"
           }`}
         >
-          Missing Employees
+          Missing Presence
         </h2>
         {missingEmployees.length > 0 ? (
           <ul className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-5 text-md">
@@ -267,12 +399,123 @@ const PresenzaTab: React.FC = () => {
           <p
             className={`text-md ${isDark ? "text-gray-300" : "text-gray-600"}`}
           >
-            No missing employees.
+            No missing employees
           </p>
         )}
       </div>
 
-      {/* Employee List */}
+      {/* Submitted Presence Section */}
+      <div
+        className={`${
+          isDark ? "bg-gray-800" : "bg-gray-50"
+        } p-4 rounded shadow`}
+      >
+        <div
+          className={`mb-4 flex flex-col md:flex-row md:items-center justify-between gap-3`}
+        >
+          <h2
+            className={`text-lg font-semibold flex-1 pb-2 border-b ${
+              isDark
+                ? "text-teal-400 border-gray-700"
+                : "text-teal-600 border-gray-200"
+            }`}
+          >
+            Submitted Presence
+          </h2>
+          <div className="flex items-center flex-0.25 relative">
+            <TextField
+              id="standard-basic"
+              label="Search"
+              variant="standard"
+              size="small"
+              value={searchText}
+              onChange={handleSeachEmployees}
+              disabled={employees.length <= 0}
+              sx={{
+                marginBottom: 1,
+                width: "100%",
+                "& .css-1wd3yy0-MuiInputBase-input-MuiInput-input": {
+                  color: isDark ? "#F3F4F6" : "inherit",
+                },
+                "& .MuiInputLabel-root": {
+                  color: isDark ? "#4fd1c5 !important" : "#319795 !important",
+                },
+                "& .MuiInput-underline:before": {
+                  borderBottomColor: isDark ? "#374151" : "#E5E7EB",
+                },
+                "& .MuiInput-underline:after": {
+                  borderBottomColor: isDark ? "#4fd1c5" : "#319795",
+                },
+                "& .MuiInput-underline:hover:not(.Mui-disabled):before": {
+                  borderBottomColor: isDark ? "#4fd1c5" : "#319795",
+                },
+              }}
+            />
+            {searchText && (
+              <IconButton
+                size="small"
+                onClick={clearSearch}
+                sx={{
+                  position: "absolute",
+                  right: 0,
+                  bottom: "8px",
+                  color: isDark ? "#9CA3AF" : "#6B7280",
+                  "&:hover": {
+                    backgroundColor: isDark
+                      ? "rgba(79, 209, 197, 0.08)"
+                      : "rgba(49, 151, 149, 0.08)",
+                  },
+                }}
+              >
+                <Clear fontSize="small" />
+              </IconButton>
+            )}
+          </div>
+        </div>
+        {filteredEmployees.length > 0 ? (
+          <ul className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-5 text-md">
+            {filteredEmployees.map((employee) => (
+              <li
+                key={employee.id}
+                className={`p-2 rounded cursor-pointer ${
+                  employeeDetails?.id === employee.id
+                    ? isDark
+                      ? "bg-gray-700"
+                      : "bg-gray-100"
+                    : ""
+                } hover:bg-${
+                  isDark ? "gray-700" : "gray-100"
+                } transition-colors duration-200 ${
+                  isDark ? "text-gray-300" : "text-gray-700"
+                }`}
+                onClick={() => handleEmployeeSelect(employee)}
+              >
+                {employee.name} {employee.surname}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p
+            className={`text-md ${isDark ? "text-gray-300" : "text-gray-600"}`}
+          >
+            {employees.length > 0 && filteredEmployees.length <= 0
+              ? "No employee found"
+              : "No submitted employees"}
+          </p>
+        )}
+      </div>
+
+      {/* Employee Details and Employee presence section */}
+      {employeeDetails && employees.length > 0 && (
+        <EmployeePresenceSection
+          employeeId={employeeDetails.id}
+          selectedYear={selectedYear}
+          selectedMonth={selectedMonth}
+          fetchMissingEmployees={fetchMissingEmployees}
+        />
+      )}
+
+      {/* Email and Export Section */}
       <div
         className={`${
           isDark ? "bg-gray-800" : "bg-gray-50"
@@ -285,92 +528,165 @@ const PresenzaTab: React.FC = () => {
               : "text-teal-600 border-gray-200"
           }`}
         >
-          Employees
-        </h2>
-        <ul className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-5 text-md">
-          {employees.map((employee) => (
-            <li
-              key={employee.id}
-              className={`p-2 rounded cursor-pointer ${
-                employeeDetails?.id === employee.id
-                  ? isDark
-                    ? "bg-gray-700"
-                    : "bg-gray-100"
-                  : ""
-              } hover:bg-${
-                isDark ? "gray-700" : "gray-100"
-              } transition-colors duration-200 ${
-                isDark ? "text-gray-300" : "text-gray-700"
-              }`}
-              onClick={() => handleEmployeeSelect(employee)}
-            >
-              {employee.name} {employee.surname}
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      {/* Employee Details and Employee presence section */}
-      <EmployeePresenceSection
-        employeeDetails={employeeDetails}
-        selectedYear={selectedYear}
-        selectedMonth={selectedMonth}
-        fetchMissingEmployees={fetchMissingEmployees}
-      />
-
-      {/* Email and Export Section */}
-      <div
-        className={`${
-          isDark ? "bg-gray-800" : "bg-gray-50"
-        } p-4 rounded shadow`}
-      >
-        <h2
-          className={`text-lg font-semibold mb-2 ${
-            isDark ? "text-white" : "text-gray-800"
-          }`}
-        >
           Send Email to Employees
         </h2>
-        <textarea
-          className={`border h-29 p-2 rounded w-full mb-2 resize-none focus:outline-none focus:ring-1 focus:ring-teal-500 focus:border-teal-500 ${
-            isDark
-              ? "bg-gray-700 border-gray-600 text-white"
-              : "bg-white border-gray-300 text-gray-900"
-          }`}
-          value={emailText}
-          onChange={(e) => setEmailText(e.target.value)}
-          rows={4}
-        />
+        <div className="mb-2">
+          <label className={labelClasses}>Subject</label>
+          <input
+            type="text"
+            autoComplete="off"
+            {...register("emailSubject", { required: true })}
+            className={`${inputClasses} ${
+              errors.emailSubject ? "border-red-500 focus:ring-red-500" : ""
+            }`}
+          />
+        </div>
+        <div className="mb-2">
+          <label className={labelClasses}>Body</label>
+          <textarea
+            autoComplete="off"
+            {...register("emailBody", { required: true })}
+            className={`${inputClasses} h-40 ${
+              errors.emailBody ? "border-red-500 focus:ring-red-500" : ""
+            }`}
+          />
+        </div>
         <div className="flex flex-wrap gap-3">
           {employeeDetails && (
             <button
               className={primaryButtonClass}
-              onClick={() => handleSendEmail(employeeDetails.id)}
+              onClick={handleSubmit((data) => handleSendEmail(1, data))}
             >
               Send Email to {employeeDetails?.name}
             </button>
           )}
           <button
             className={primaryButtonClass}
-            onClick={() => handleSendEmail()}
+            onClick={handleSubmit((data) => handleSendEmail(2, data))}
           >
             Send Email to Missing Employees
+          </button>
+          <button
+            className={primaryButtonClass}
+            onClick={handleSubmit((data) => handleSendEmail(3, data))}
+          >
+            Send Email to All Employees
           </button>
         </div>
       </div>
 
-      {/* Export Button */}
-      <div className="w-full flex gap-2 lg:gap-10 flex-col lg:flex-row">
-        <button
-          className={successButtonClass}
-          onClick={handleEmployeeExportExcel}
-        >
-          Export Employee Data to Excel
-        </button>
+      {/* Export Buttons with Dropdowns */}
+      <div className="w-full flex gap-3 flex-col lg:flex-row">
+        {/* Employee Export Button */}
+        <div>
+          <button className={successButtonClass} onClick={handleEmployeeExport}>
+            Export Employee Data
+          </button>
+        </div>
 
-        <button className={actionButtonClass} onClick={handleAdminExportExcel}>
-          Export Admin Data to Excel
-        </button>
+        {/* Admin Export Button */}
+        <div>
+          <button
+            ref={adminExportRef}
+            className={actionButtonClass}
+            onClick={(e) => setAdminExportMenu(e.currentTarget)}
+          >
+            Export Admin Data
+          </button>
+          <Menu
+            anchorEl={adminExportMenu}
+            open={Boolean(adminExportMenu)}
+            onClose={() => setAdminExportMenu(null)}
+            slotProps={{
+              paper: {
+                sx: {
+                  backgroundColor: isDark ? "#1F2937" : "white",
+                  color: isDark ? "white" : "inherit",
+                },
+              },
+            }}
+            aria-labelledby="admin-export-button"
+          >
+            <MenuItem
+              onClick={() => {
+                handleAdminExport("excel");
+                setAdminExportMenu(null);
+              }}
+              sx={{
+                "&:hover": {
+                  backgroundColor: isDark ? "#374151" : "#F3F4F6",
+                },
+              }}
+            >
+              Excel Format
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                handleAdminExport("pdf");
+                setAdminExportMenu(null);
+              }}
+              sx={{
+                "&:hover": {
+                  backgroundColor: isDark ? "#374151" : "#F3F4F6",
+                },
+              }}
+            >
+              PDF Format
+            </MenuItem>
+          </Menu>
+        </div>
+
+        {/* All Employees Export Button */}
+        <div>
+          <button
+            ref={allEmployeesExportRef}
+            className={primaryButtonClass}
+            onClick={(e) => setAllEmployeesExportMenu(e.currentTarget)}
+          >
+            Export All Employees Data
+          </button>
+          <Menu
+            anchorEl={allEmployeesExportMenu}
+            open={Boolean(allEmployeesExportMenu)}
+            onClose={() => setAllEmployeesExportMenu(null)}
+            slotProps={{
+              paper: {
+                sx: {
+                  backgroundColor: isDark ? "#1F2937" : "white",
+                  color: isDark ? "white" : "inherit",
+                },
+              },
+            }}
+            aria-labelledby="all-employees-export-button"
+          >
+            <MenuItem
+              onClick={() => {
+                handleAllEmployeesExport("excel");
+                setAllEmployeesExportMenu(null);
+              }}
+              sx={{
+                "&:hover": {
+                  backgroundColor: isDark ? "#374151" : "#F3F4F6",
+                },
+              }}
+            >
+              Excel Format
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                handleAllEmployeesExport("pdf");
+                setAllEmployeesExportMenu(null);
+              }}
+              sx={{
+                "&:hover": {
+                  backgroundColor: isDark ? "#374151" : "#F3F4F6",
+                },
+              }}
+            >
+              Both (Excel & PDF)
+            </MenuItem>
+          </Menu>
+        </div>
       </div>
     </div>
   );

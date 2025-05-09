@@ -14,7 +14,7 @@ import { toast } from "react-toastify";
 interface PopupProps {
   isOpen: boolean;
   onClose: () => void;
-  pageType: string;
+  pageType: "static" | "dynamic";
   selectedDay: Date;
   selectedDayData: NewPresenceData;
   handlePresenceChange?: (

@@ -9,9 +9,14 @@ COPY . .
 
 RUN pip install debugpy
 
+RUN apt-get update && \
+    apt-get install -y libreoffice && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
 EXPOSE 8000
 #EXPOSE 5678 
-# Debugger port for debugpy
+#Debugger port for debugpy
 
 #CMD alembic upgrade head && \
 #    python -m debugpy --listen 0.0.0.0:5678 --wait-for-client \

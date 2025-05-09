@@ -11,8 +11,9 @@ import { isAxiosError } from "axios";
 import ThemeContext from "../context/ThemeContext";
 
 interface DefaultTimeProps {
-  pageName: string;
+  pageName: "admin" | "employee";
   defaultTimes: DefaultHours;
+  calendarMonth?: number;
   setDefaultTimes: (times: DefaultHours) => void;
   handleSaveMonthlyPresence: () => void;
   onApplyDefaultHours?: () => void;
@@ -21,6 +22,7 @@ interface DefaultTimeProps {
 const DefaultTimesCard: React.FC<DefaultTimeProps> = ({
   pageName,
   defaultTimes,
+  calendarMonth,
   setDefaultTimes,
   handleSaveMonthlyPresence,
   onApplyDefaultHours,
@@ -28,8 +30,29 @@ const DefaultTimesCard: React.FC<DefaultTimeProps> = ({
   const { theme } = useContext(ThemeContext);
   const isDark = theme === "dark";
   const userId = localStorage.getItem("user_id") || "";
+  const currentDate = new Date().getDate();
+  const isEditableMonth =
+    calendarMonth === new Date().getMonth() ||
+    (calendarMonth === new Date().getMonth() - 1 && currentDate <= 5);
 
   const handleDefaultHoursSave = async () => {
+    const {
+      entry_time_morning,
+      exit_time_morning,
+      entry_time_afternoon,
+      exit_time_afternoon,
+    } = defaultTimes;
+    const missingFields = [];
+    if (!entry_time_morning) missingFields.push("Morning Entry");
+    if (!exit_time_morning) missingFields.push("Morning Exit");
+    if (!entry_time_afternoon) missingFields.push("Afternoon Entry");
+    if (!exit_time_afternoon) missingFields.push("Afternoon Exit");
+
+    if (missingFields.length > 0) {
+      toast.info(`Missing: ${missingFields.join(", ")}`);
+      return;
+    }
+
     const defaultHoursData = {
       user_id: userId,
       submitted_by_id: userId,
@@ -55,6 +78,38 @@ const DefaultTimesCard: React.FC<DefaultTimeProps> = ({
         console.error("Error saving default hours:", error);
         toast.error("Error occurred while saving default hours.");
       }
+    }
+  };
+
+  const handleApplyDefaultHours = () => {
+    if (onApplyDefaultHours) {
+      if (pageName === "employee" && !isEditableMonth) {
+        toast.info("You can only edit the current Month", {
+          pauseOnFocusLoss: false,
+          pauseOnHover: false,
+          hideProgressBar: true,
+          autoClose: 3000,
+        });
+        return;
+      }
+
+      onApplyDefaultHours();
+    }
+  };
+
+  const handleSubmitPresence = () => {
+    if (handleSaveMonthlyPresence) {
+      if (pageName === "employee" && !isEditableMonth) {
+        toast.info("You can only submit presence for current Month", {
+          pauseOnFocusLoss: false,
+          pauseOnHover: false,
+          hideProgressBar: true,
+          autoClose: 3000,
+        });
+        return;
+      }
+
+      handleSaveMonthlyPresence();
     }
   };
 
@@ -126,14 +181,12 @@ const DefaultTimesCard: React.FC<DefaultTimeProps> = ({
             pageName === "admin" ? "flex-col" : "flex-col sm:flex-row"
           } gap-3 w-full ${pageName === "admin" ? "text-sm" : ""}`}
         >
-          {onApplyDefaultHours && (
-            <button
-              className="bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 text-white px-4 py-3 rounded-md flex-1 cursor-pointer transition-all duration-200 font-medium shadow-sm"
-              onClick={onApplyDefaultHours}
-            >
-              Apply Default Hours
-            </button>
-          )}
+          <button
+            className="bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 text-white px-4 py-3 rounded-md flex-1 cursor-pointer transition-all duration-200 font-medium shadow-sm"
+            onClick={handleApplyDefaultHours}
+          >
+            Apply Default Hours
+          </button>
           <button
             className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white px-4 py-3 rounded-md flex-1 cursor-pointer transition-all duration-200 font-medium shadow-sm"
             onClick={handleDefaultHoursSave}
@@ -142,7 +195,7 @@ const DefaultTimesCard: React.FC<DefaultTimeProps> = ({
           </button>
           <button
             className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white px-4 py-3 rounded-md flex-1 cursor-pointer transition-all duration-200 font-medium shadow-sm"
-            onClick={handleSaveMonthlyPresence}
+            onClick={handleSubmitPresence}
           >
             Submit Monthly Presence
           </button>

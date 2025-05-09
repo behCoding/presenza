@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useContext } from "react";
+import React, { useCallback, useEffect, useContext, useState } from "react";
 import Box from "@mui/material/Box";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/DeleteOutlined";
@@ -15,11 +15,13 @@ import {
   type GridRowId,
   type GridRowModel,
   GridRowEditStopReasons,
+  GridToolbarContainer,
 } from "@mui/x-data-grid";
 import type { Employee } from "../types";
 import { DeleteUser, GetAllEmployees, UpdateUser } from "../api/adminApi";
 import ThemeContext from "../context/ThemeContext";
 import { toast } from "react-toastify";
+import { TextField } from "@mui/material";
 
 declare module "@mui/x-data-grid" {
   interface ToolbarPropsOverrides {
@@ -27,6 +29,8 @@ declare module "@mui/x-data-grid" {
     setRowModesModel: (
       newModel: (oldModel: GridRowModesModel) => GridRowModesModel
     ) => void;
+    searchText: string;
+    setSearchText: (searchText: string) => void;
   }
 }
 
@@ -37,17 +41,60 @@ const formatRowData = (rowData: Employee[]) => {
   }));
 };
 
+const CustomToolbar = ({
+  setSearchText,
+  searchText,
+}: {
+  setSearchText: (searchText: string) => void;
+  searchText: string;
+}) => {
+  const { theme } = useContext(ThemeContext);
+  const isDark = theme === "dark";
+
+  return (
+    <GridToolbarContainer>
+      <TextField
+        variant="standard"
+        value={searchText}
+        onChange={(e) => setSearchText(e.target.value)}
+        placeholder="Search..."
+        sx={{
+          width: "100%",
+          margin: "10px",
+          "& .css-1wd3yy0-MuiInputBase-input-MuiInput-input": {
+            color: isDark ? "#F3F4F6" : "inherit",
+          },
+          "& .MuiInputLabel-root": {
+            color: isDark ? "#4fd1c5 !important" : "#319795 !important",
+          },
+          "& .MuiInput-underline:before": {
+            borderBottomColor: isDark ? "#374151" : "#E5E7EB",
+          },
+          "& .MuiInput-underline:after": {
+            borderBottomColor: isDark ? "#4fd1c5" : "#319795",
+          },
+          "& .MuiInput-underline:hover:not(.Mui-disabled):before": {
+            borderBottomColor: isDark ? "#4fd1c5" : "#319795",
+          },
+        }}
+      />
+    </GridToolbarContainer>
+  );
+};
+
 const UserManagementTab: React.FC = () => {
   const { theme } = useContext(ThemeContext);
   const isDark = theme === "dark";
-  const [rows, setRows] = React.useState<GridRowsProp>([]);
-  const [rowModesModel, setRowModesModel] = React.useState<GridRowModesModel>(
-    {}
-  );
+  const [rows, setRows] = useState<GridRowsProp>([]);
+  const [originalRows, setOriginalRows] = React.useState<GridRowsProp>([]);
+  const [rowModesModel, setRowModesModel] = useState<GridRowModesModel>({});
+  const [searchText, setSearchText] = useState("");
 
   const fetchEmployees = useCallback(async () => {
     const employeesData: Employee[] = await GetAllEmployees();
-    setRows(formatRowData(employeesData));
+    const formattedData = formatRowData(employeesData);
+    setRows(formattedData);
+    setOriginalRows(formattedData);
   }, []);
 
   const handleRowEditStop: GridEventListener<"rowEditStop"> = (
@@ -110,6 +157,7 @@ const UserManagementTab: React.FC = () => {
       work_email: newRow.work_email,
       is_active: newRow.is_active,
       role: newRow.role,
+      iban: newRow.iban,
     };
     await handleUpdateUser(body);
     const updatedRow = { ...newRow, isNew: false };
@@ -147,6 +195,12 @@ const UserManagementTab: React.FC = () => {
     {
       field: "work_email",
       headerName: "Work Email",
+      editable: true,
+      flex: 1,
+    },
+    {
+      field: "iban",
+      headerName: "IBAN",
       editable: true,
       flex: 1,
     },
@@ -227,6 +281,23 @@ const UserManagementTab: React.FC = () => {
     fetchEmployees?.();
   }, [fetchEmployees]);
 
+  useEffect(() => {
+    if (searchText === "") {
+      setRows(originalRows);
+    } else {
+      const filteredRows = originalRows.filter((row) => {
+        return Object.keys(row).some((field) => {
+          if (field === "id" || typeof row[field] === "object") return false;
+
+          return String(row[field])
+            .toLowerCase()
+            .includes(searchText.toLowerCase());
+        });
+      });
+      setRows(filteredRows);
+    }
+  }, [searchText, originalRows]);
+
   return (
     <div
       className={`flex flex-col ${
@@ -240,7 +311,7 @@ const UserManagementTab: React.FC = () => {
             : "text-teal-600 border-gray-200"
         }`}
       >
-        List of Users
+        List of Employees
       </h2>
       <Box
         sx={{
@@ -305,6 +376,9 @@ const UserManagementTab: React.FC = () => {
             color: isDark ? "#F3F4F6" : "inherit",
             backgroundColor: "transparent",
           },
+          "& .css-ok32b7-MuiDataGrid-overlay": {
+            backgroundColor: "inherit",
+          },
         }}
         className="shadow-md rounded"
       >
@@ -316,8 +390,14 @@ const UserManagementTab: React.FC = () => {
           onRowModesModelChange={handleRowModesModelChange}
           onRowEditStop={handleRowEditStop}
           processRowUpdate={processRowUpdate}
+          slots={{
+            toolbar: CustomToolbar,
+          }}
           slotProps={{
-            toolbar: { setRows, setRowModesModel },
+            toolbar: {
+              setSearchText,
+              searchText,
+            },
           }}
           initialState={{
             pagination: {

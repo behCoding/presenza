@@ -9,7 +9,7 @@ interface AuthLayoutProps {
 export const AuthLayout = ({ children, title }: AuthLayoutProps) => {
   return (
     <div className="min-h-screen flex flex-col">
-      <Header title={title} showThemeToggle showSignOut={false} />
+      <Header title={title} showSignOut={false} />
       <main className="flex-grow flex flex-col">{children}</main>
     </div>
   );

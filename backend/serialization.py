@@ -13,6 +13,7 @@ class UserBase(BaseModel):
     work_email: str
     is_active: Optional[bool] = True
     role: str = "employee"
+    iban: str
 
     class Config:
         orm_mode = True
@@ -34,15 +35,34 @@ class TokenData(BaseModel):
 
 
 class UserUpdate(UserBase):
+    name: Optional[str]
+    surname: Optional[str]
+    job_start_date: Optional[date]
+    full_time: Optional[bool]
     phone_number: Optional[int]
     personal_email: Optional[str]
     work_email: Optional[str]
     password: Optional[str]
     role: Optional[str]
+    iban: Optional[str]
     is_active: Optional[bool]
     id: int
 
 
+class UserPresence(UserBase):
+    name: Optional[str]
+    surname: Optional[str]
+    job_start_date: Optional[date]
+    full_time: Optional[bool]
+    phone_number: Optional[int]
+    personal_email: Optional[str]
+    work_email: Optional[str]
+    role: Optional[str]
+    iban: Optional[str]
+    is_active: Optional[bool]
+    id: Optional[int]
+
+    
 class PasswordChangeRequest(BaseModel):
     work_email: str
     new_password: str
@@ -119,7 +139,16 @@ class UserBaseID(UserBase):
 
 class EmailRequest(BaseModel):
     yearMonth: str
-    text: str
+    textBody: str
+    textSubject: str
+
+    class Config:
+        orm_mode = True
+
+
+class EmailRequestAll(BaseModel):
+    textBody: str
+    textSubject: str
 
     class Config:
         orm_mode = True
@@ -127,7 +156,8 @@ class EmailRequest(BaseModel):
 
 class EmailRequestPerUser(BaseModel):
     user_id: int
-    text: str
+    textBody: str
+    textSubject: str
 
     class Config:
         orm_mode = True

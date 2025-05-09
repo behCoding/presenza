@@ -4,15 +4,18 @@ import { toast } from "react-toastify";
 import ThemeContext from "../context/ThemeContext";
 import OtpPopup from "./OtpPopup";
 import { SendOtp, UpdatePassword, VerifyOtp } from "../api/loginApi";
+import { jwtDecode } from "jwt-decode";
 
 interface ForgotPasswordModalProps {
   isOpen: boolean;
   onClose: () => void;
+  isAlreadyVerified?: boolean;
 }
 
 const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
   isOpen,
   onClose,
+  isAlreadyVerified,
 }) => {
   const { theme } = useContext(ThemeContext);
   const isDark = theme === "dark";
@@ -31,6 +34,8 @@ const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const emailSuffix = "@storelink.it";
 
+  const token = localStorage.getItem("token");
+
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = "hidden";
@@ -43,13 +48,22 @@ const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
 
   useEffect(() => {
     if (!isOpen) {
-      setEmail("");
+      if (!isAlreadyVerified) setEmail("");
       setNewPassword("");
       setConfirmPassword("");
       setIsEmailVerified(false);
       setShowOtpPopup(false);
     }
-  }, [isOpen]);
+    if (isAlreadyVerified) setIsEmailVerified(isAlreadyVerified);
+  }, [isOpen, isAlreadyVerified]);
+
+  useEffect(() => {
+    if (isAlreadyVerified && token) {
+      setIsEmailVerified(isAlreadyVerified);
+      const decodedToken = jwtDecode(token);
+      if (decodedToken.sub) setEmail(decodedToken.sub);
+    }
+  }, [isAlreadyVerified, token]);
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[a-zA-Z0-9._%+-]+@storelink\.it$/;
@@ -161,7 +175,7 @@ const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
       >
         <button
           onClick={onClose}
-          className={`absolute top-3 right-3 p-1 rounded-full ${
+          className={`absolute top-3 right-3 p-1 rounded-full cursor-pointer ${
             isDark
               ? "bg-gray-700 hover:bg-gray-600 text-gray-300"
               : "bg-gray-100 hover:bg-gray-200 text-gray-600"

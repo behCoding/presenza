@@ -4,7 +4,6 @@ import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 import type {
   DefaultHours,
-  Employee,
   EmployeeOverview,
   NewPresenceData,
   PresenceData,
@@ -48,14 +47,14 @@ type IconColor = OverridableStringUnion<
 type View = "month" | "year" | "decade" | "century";
 
 interface EmployeePresenceSectionProps {
-  employeeDetails: Employee | null;
+  employeeId: number | null;
   selectedYear: string;
   selectedMonth: string;
   fetchMissingEmployees?: () => Promise<void>;
 }
 
 const EmployeePresenceSection: React.FC<EmployeePresenceSectionProps> = ({
-  employeeDetails,
+  employeeId,
   selectedYear,
   selectedMonth,
   fetchMissingEmployees,
@@ -90,12 +89,12 @@ const EmployeePresenceSection: React.FC<EmployeePresenceSectionProps> = ({
 
   const initializeMonthData = useCallback(async () => {
     try {
-      if (!employeeDetails?.id || !selectedMonth || !selectedYear) return;
+      if (!employeeId || !selectedMonth || !selectedYear) return;
 
       const [times, apiData, adminApiData, holidaysData] = await Promise.all([
         GetDefaultTimes(userId),
-        GetPresenceData(employeeDetails.id, selectedMonth, selectedYear),
-        GetAdminPresenceData(employeeDetails.id, selectedMonth, selectedYear),
+        GetPresenceData(employeeId, selectedMonth, selectedYear),
+        GetAdminPresenceData(employeeId, selectedMonth, selectedYear),
         GetNationalHolidays(Number(selectedYear)),
       ]);
 
@@ -124,7 +123,7 @@ const EmployeePresenceSection: React.FC<EmployeePresenceSectionProps> = ({
 
         newPresenceData.push({
           date: dateString,
-          employee_id: employeeDetails.id.toString(),
+          employee_id: employeeId?.toString(),
           entry_time_morning: employeeRecord?.entry_time_morning || "",
           exit_time_morning: employeeRecord?.exit_time_morning || "",
           entry_time_afternoon: employeeRecord?.entry_time_afternoon || "",
@@ -143,7 +142,7 @@ const EmployeePresenceSection: React.FC<EmployeePresenceSectionProps> = ({
 
         newAdminPresenceData.push({
           date: dateString,
-          employee_id: employeeDetails.id.toString(),
+          employee_id: employeeId?.toString(),
           entry_time_morning: adminRecord?.entry_time_morning || "",
           exit_time_morning: adminRecord?.exit_time_morning || "",
           entry_time_afternoon: adminRecord?.entry_time_afternoon || "",
@@ -167,13 +166,13 @@ const EmployeePresenceSection: React.FC<EmployeePresenceSectionProps> = ({
       toast.error("Error loading data. Please try again.");
       console.error("Data loading error:", error);
     }
-  }, [employeeDetails, selectedMonth, selectedYear, getDayString, userId]);
+  }, [employeeId, selectedMonth, selectedYear, getDayString, userId]);
 
   const getDayData = useCallback(
     (dateString: string): NewPresenceData => {
       const defaultData: NewPresenceData = {
         date: dateString,
-        employee_id: employeeDetails?.id.toString() || "",
+        employee_id: employeeId?.toString() || "",
         entry_time_morning: "",
         exit_time_morning: "",
         entry_time_afternoon: "",
@@ -201,7 +200,7 @@ const EmployeePresenceSection: React.FC<EmployeePresenceSectionProps> = ({
         );
       }
     },
-    [presenceData, adminPresenceData, pageType, employeeDetails]
+    [presenceData, adminPresenceData, pageType, employeeId]
   );
 
   const handleDayClick = (date: Date, type: "static" | "dynamic") => {
@@ -336,7 +335,7 @@ const EmployeePresenceSection: React.FC<EmployeePresenceSectionProps> = ({
 
     try {
       await toast.promise(
-        PostAdminMonthlyPresence(employeeDetails?.id.toString() || "", data),
+        PostAdminMonthlyPresence(employeeId?.toString() || "", data),
         {
           pending: "Saving data...",
           success: "Data saved successfully!",
@@ -355,10 +354,10 @@ const EmployeePresenceSection: React.FC<EmployeePresenceSectionProps> = ({
   };
 
   const fetchOverviewData = useCallback(async () => {
-    if (!employeeDetails?.id || !selectedMonth || !selectedYear) return;
+    if (!employeeId || !selectedMonth || !selectedYear) return;
     try {
       const overviewData = await GetEmployeeOverview(
-        employeeDetails.id,
+        employeeId,
         selectedMonth,
         selectedYear
       );
@@ -366,7 +365,7 @@ const EmployeePresenceSection: React.FC<EmployeePresenceSectionProps> = ({
     } catch (error) {
       console.error("Error fetching overview data:", error);
     }
-  }, [employeeDetails, selectedMonth, selectedYear]);
+  }, [employeeId, selectedMonth, selectedYear]);
 
   useEffect(() => {
     initializeMonthData();
@@ -379,163 +378,51 @@ const EmployeePresenceSection: React.FC<EmployeePresenceSectionProps> = ({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {employeeDetails && (
-          <div
-            className={`${
-              isDark ? "bg-gray-800" : "bg-white"
-            } px-6 py-5 rounded-lg shadow-md border ${
-              isDark ? "border-gray-700" : "border-gray-200"
+      {employeeOverview && (
+        <div
+          className={`${
+            isDark ? "bg-gray-800" : "bg-white"
+          } px-6 py-5 rounded-lg shadow-md border ${
+            isDark ? "border-gray-700" : "border-gray-200"
+          }`}
+        >
+          <h2
+            className={`text-lg font-semibold mb-4 pb-2 border-b ${
+              isDark
+                ? "text-teal-400 border-gray-700"
+                : "text-teal-600 border-gray-200"
             }`}
           >
-            <h2
-              className={`text-lg font-semibold mb-4 pb-2 border-b ${
-                isDark
-                  ? "text-teal-400 border-gray-700"
-                  : "text-teal-600 border-gray-200"
-              }`}
-            >
-              Employee Details
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2">
-              <div>
-                <p
-                  className={`${
-                    isDark ? "text-gray-300" : "text-gray-700"
-                  } mb-2`}
-                >
-                  <span className="font-medium">Name:</span>{" "}
-                  {employeeDetails.name}
-                </p>
-                <p
-                  className={`${
-                    isDark ? "text-gray-300" : "text-gray-700"
-                  } mb-2`}
-                >
-                  <span className="font-medium">Surname:</span>{" "}
-                  {employeeDetails.surname}
-                </p>
-                <p
-                  className={`${
-                    isDark ? "text-gray-300" : "text-gray-700"
-                  } mb-2`}
-                >
-                  <span className="font-medium">Job Start Date:</span>{" "}
-                  {employeeDetails.job_start_date}
-                </p>
-                <p
-                  className={`${
-                    isDark ? "text-gray-300" : "text-gray-700"
-                  } mb-2`}
-                >
-                  <span className="font-medium">Full-Time:</span>{" "}
-                  {employeeDetails.full_time ? "Yes" : "No"}
-                </p>
-                <p
-                  className={`${
-                    isDark ? "text-gray-300" : "text-gray-700"
-                  } mb-2`}
-                >
-                  <span className="font-medium">Active:</span>{" "}
-                  {employeeDetails.is_active ? "Yes" : "No"}
-                </p>
-              </div>
-              <div>
-                <p
-                  className={`${
-                    isDark ? "text-gray-300" : "text-gray-700"
-                  } mb-2`}
-                >
-                  <span className="font-medium">Phone:</span>{" "}
-                  {employeeDetails.phone_number}
-                </p>
-                <p
-                  className={`${
-                    isDark ? "text-gray-300" : "text-gray-700"
-                  } mb-2`}
-                >
-                  <span className="font-medium">Personal Email:</span>{" "}
-                  {employeeDetails.personal_email}
-                </p>
-                <p
-                  className={`${
-                    isDark ? "text-gray-300" : "text-gray-700"
-                  } mb-2`}
-                >
-                  <span className="font-medium">Work Email:</span>{" "}
-                  {employeeDetails.work_email}
-                </p>
-                <p
-                  className={`${
-                    isDark ? "text-gray-300" : "text-gray-700"
-                  } mb-2`}
-                >
-                  <span className="font-medium">Role:</span>{" "}
-                  {employeeDetails.role}
-                </p>
-              </div>
-            </div>
+            Presence Data
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-2">
+            <p className={`${isDark ? "text-gray-300" : "text-gray-700"} mb-2`}>
+              <span className="font-medium">Total Worked Hours:</span>{" "}
+              {employeeOverview.totalWorkedHoursInMonth || "N/A"}
+            </p>
+            <p className={`${isDark ? "text-gray-300" : "text-gray-700"} mb-2`}>
+              <span className="font-medium">Expected Working Hours:</span>{" "}
+              {employeeOverview.totalExpectedWorkingHours || "N/A"}
+            </p>
+            <p className={`${isDark ? "text-gray-300" : "text-gray-700"} mb-2`}>
+              <span className="font-medium">Total Extra Hours:</span>{" "}
+              {employeeOverview.totalExtraHoursInMonth || "N/A"}
+            </p>
+            <p className={`${isDark ? "text-gray-300" : "text-gray-700"} mb-2`}>
+              <span className="font-medium">Total Off Hours:</span>{" "}
+              {employeeOverview.totalOffHoursInMonth || "N/A"}
+            </p>
+            <p className={`${isDark ? "text-gray-300" : "text-gray-700"} mb-2`}>
+              <span className="font-medium">Total Off Days:</span>{" "}
+              {employeeOverview.totalOffDaysInMonth || "N/A"}
+            </p>
+            <p className={`${isDark ? "text-gray-300" : "text-gray-700"} mb-2`}>
+              <span className="font-medium">Notes:</span>{" "}
+              {employeeOverview.notes || "N/A"}
+            </p>
           </div>
-        )}
-
-        {employeeOverview && (
-          <div
-            className={`${
-              isDark ? "bg-gray-800" : "bg-white"
-            } px-6 py-5 rounded-lg shadow-md border ${
-              isDark ? "border-gray-700" : "border-gray-200"
-            }`}
-          >
-            <h2
-              className={`text-lg font-semibold mb-4 pb-2 border-b ${
-                isDark
-                  ? "text-teal-400 border-gray-700"
-                  : "text-teal-600 border-gray-200"
-              }`}
-            >
-              Presence Data
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2">
-              <p
-                className={`${isDark ? "text-gray-300" : "text-gray-700"} mb-2`}
-              >
-                <span className="font-medium">Total Worked Hours:</span>{" "}
-                {employeeOverview.totalWorkedHoursInMonth || "N/A"}
-              </p>
-              <p
-                className={`${isDark ? "text-gray-300" : "text-gray-700"} mb-2`}
-              >
-                <span className="font-medium">Expected Working Hours:</span>{" "}
-                {employeeOverview.totalExpectedWorkingHours || "N/A"}
-              </p>
-              <p
-                className={`${isDark ? "text-gray-300" : "text-gray-700"} mb-2`}
-              >
-                <span className="font-medium">Total Extra Hours:</span>{" "}
-                {employeeOverview.totalExtraHoursInMonth || "N/A"}
-              </p>
-              <p
-                className={`${isDark ? "text-gray-300" : "text-gray-700"} mb-2`}
-              >
-                <span className="font-medium">Total Off Hours:</span>{" "}
-                {employeeOverview.totalOffHoursInMonth || "N/A"}
-              </p>
-              <p
-                className={`${isDark ? "text-gray-300" : "text-gray-700"} mb-2`}
-              >
-                <span className="font-medium">Total Off Days:</span>{" "}
-                {employeeOverview.totalOffDaysInMonth || "N/A"}
-              </p>
-              <p
-                className={`${isDark ? "text-gray-300" : "text-gray-700"} mb-2`}
-              >
-                <span className="font-medium">Notes:</span>{" "}
-                {employeeOverview.notes || "N/A"}
-              </p>
-            </div>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {employeeOverview && (
         <div
@@ -620,27 +507,41 @@ const EmployeePresenceSection: React.FC<EmployeePresenceSectionProps> = ({
 
               <div className="lg:col-span-2">
                 <div
-                  className={`grid grid-cols-4 gap-4 text-sm p-4 rounded-lg ${
-                    isDark
-                      ? "bg-gray-700 text-gray-300"
-                      : "bg-gray-50 text-gray-700"
-                  }`}
+                  className={`grid grid-cols-2 md:grid-cols-3 gap-y-4 text-sm ${
+                    isDark ? "text-gray-300" : "text-gray-700"
+                  } p-4 rounded-lg ${isDark ? "bg-gray-700/50" : "bg-gray-50"}`}
                 >
                   <div className="flex items-center justify-center">
-                    <div className="w-4 h-4 rounded-full bg-green-500 mr-2"></div>
+                    <Check color="success" fontSize="small" className="mr-2" />
                     <span>Completed</span>
                   </div>
                   <div className="flex items-center justify-center">
-                    <div className="w-4 h-4 rounded-full bg-blue-500 mr-2"></div>
+                    <Edit color="primary" fontSize="small" className="mr-2" />
                     <span>Modified</span>
                   </div>
                   <div className="flex items-center justify-center">
-                    <div className="w-4 h-4 rounded-full bg-red-500 mr-2"></div>
+                    <Clear color="error" fontSize="small" className="mr-2" />
                     <span>Missing</span>
                   </div>
                   <div className="flex items-center justify-center">
-                    <div className="w-4 h-4 rounded-full bg-gray-400 mr-2"></div>
+                    <Weekend
+                      sx={{ color: "#9CA3AF" }}
+                      fontSize="small"
+                      className="mr-2"
+                    />
                     <span>Weekend</span>
+                  </div>
+                  <div className="flex items-center justify-center">
+                    <BeachAccess
+                      color="warning"
+                      fontSize="small"
+                      className="mr-2"
+                    />
+                    <span>Day Off</span>
+                  </div>
+                  <div className="flex items-center justify-center">
+                    <Flag color="secondary" fontSize="small" className="mr-2" />
+                    <span>Holiday</span>
                   </div>
                 </div>
               </div>

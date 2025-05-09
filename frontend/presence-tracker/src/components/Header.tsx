@@ -6,14 +6,14 @@ import { useNavigate } from "react-router-dom";
 
 interface HeaderProps {
   title: string;
-  showThemeToggle?: boolean;
   showSignOut?: boolean;
+  toggleUpdatePage?: () => void;
 }
 
 const Header: React.FC<HeaderProps> = ({
   title,
-  showThemeToggle = true,
   showSignOut = true,
+  toggleUpdatePage,
 }) => {
   const navigate = useNavigate();
   const { logout } = useContext(AuthContext);
@@ -47,7 +47,6 @@ const Header: React.FC<HeaderProps> = ({
     setMobileMenuOpen(!mobileMenuOpen);
   };
 
-  // Function to render the appropriate icon based on the page title
   const renderHeaderIcon = () => {
     if (title.includes("Employee")) {
       return (
@@ -144,6 +143,12 @@ const Header: React.FC<HeaderProps> = ({
     }
   };
 
+  const togglePage = () => {
+    if (toggleUpdatePage) {
+      toggleUpdatePage();
+    }
+  };
+
   return (
     <header
       className={`${
@@ -182,50 +187,81 @@ const Header: React.FC<HeaderProps> = ({
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-4">
-            {showThemeToggle && (
+            <button
+              onClick={toggleTheme}
+              className={`p-2 rounded-full ${
+                isDark
+                  ? "bg-gray-700 text-yellow-300 hover:bg-gray-600"
+                  : "bg-teal-50 text-teal-700 hover:bg-teal-100"
+              } transition-colors duration-200`}
+              aria-label={`Switch to ${isDark ? "light" : "dark"} mode`}
+            >
+              {isDark ? (
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
+                  />
+                </svg>
+              ) : (
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
+                  />
+                </svg>
+              )}
+            </button>
+            {showSignOut ? (
               <button
-                onClick={toggleTheme}
+                onClick={togglePage}
                 className={`p-2 rounded-full ${
                   isDark
-                    ? "bg-gray-700 text-yellow-300 hover:bg-gray-600"
-                    : "bg-teal-50 text-teal-700 hover:bg-teal-100"
+                    ? "bg-gray-700 hover:bg-gray-600"
+                    : "bg-teal-50 hover:bg-teal-100"
                 } transition-colors duration-200`}
                 aria-label={`Switch to ${isDark ? "light" : "dark"} mode`}
               >
-                {isDark ? (
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
-                    />
-                  </svg>
-                ) : (
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
-                    />
-                  </svg>
-                )}
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className={`h-6 w-6 ${
+                    isDark ? "text-teal-400" : "text-teal-600"
+                  }`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                  />
+                </svg>
               </button>
-            )}
-            {!showSignOut && (
+            ) : (
               <p
                 className={`text-sm ${
                   isDark ? "text-gray-400" : "text-gray-600"
@@ -297,49 +333,79 @@ const Header: React.FC<HeaderProps> = ({
 
           {/* Mobile menu button */}
           <div className="md:hidden flex items-center">
-            {showThemeToggle && (
-              <button
-                onClick={toggleTheme}
-                className={`p-2 mr-2 rounded-full ${
-                  isDark
-                    ? "bg-gray-700 text-yellow-300 hover:bg-gray-600"
-                    : "bg-teal-50 text-teal-700 hover:bg-teal-100"
-                } transition-colors duration-200`}
-                aria-label={`Switch to ${isDark ? "light" : "dark"} mode`}
+            <button
+              onClick={toggleTheme}
+              className={`p-2 mr-2 rounded-full ${
+                isDark
+                  ? "bg-gray-700 text-yellow-300 hover:bg-gray-600"
+                  : "bg-teal-50 text-teal-700 hover:bg-teal-100"
+              } transition-colors duration-200`}
+              aria-label={`Switch to ${isDark ? "light" : "dark"} mode`}
+            >
+              {isDark ? (
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
+                  />
+                </svg>
+              ) : (
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
+                  />
+                </svg>
+              )}
+            </button>
+            <button
+              onClick={togglePage}
+              className={`p-2 mr-2 rounded-full ${
+                isDark
+                  ? "bg-gray-700 hover:bg-gray-600"
+                  : "bg-teal-50 hover:bg-teal-100"
+              } transition-colors duration-200`}
+              aria-label={`Switch to ${isDark ? "light" : "dark"} mode`}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className={`h-6 w-6 ${
+                  isDark ? "text-teal-400" : "text-teal-600"
+                }`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
               >
-                {isDark ? (
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
-                    />
-                  </svg>
-                ) : (
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
-                    />
-                  </svg>
-                )}
-              </button>
-            )}
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                />
+              </svg>
+            </button>
             <button
               onClick={toggleMobileMenu}
               className={`p-2 rounded-md ${

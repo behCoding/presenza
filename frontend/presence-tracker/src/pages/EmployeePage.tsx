@@ -54,6 +54,10 @@ const EmployeePage: React.FC = () => {
   const [isMonthChanged, setIsMonthChanged] = useState(true);
   const userId = localStorage.getItem("user_id") || "";
   const toastId = useRef<string | number | null>(null);
+  const currentDate = new Date().getDate();
+  const isCurrentMonth =
+    currentMonth === new Date().getMonth() ||
+    (currentMonth === new Date().getMonth() - 1 && currentDate <= 5);
 
   const getDayString = useCallback((date: Date) => {
     return date.toLocaleDateString("en-CA");
@@ -123,7 +127,7 @@ const EmployeePage: React.FC = () => {
               pauseOnFocusLoss: false,
               pauseOnHover: false,
               hideProgressBar: true,
-              autoClose: 1200,
+              autoClose: 3000,
             }
           );
         }
@@ -407,6 +411,7 @@ const EmployeePage: React.FC = () => {
             <div className="flex flex-col gap-8">
               <DefaultTimesCard
                 pageName="employee"
+                calendarMonth={currentMonth}
                 defaultTimes={defaultTimes}
                 setDefaultTimes={setDefaultTimes}
                 handleSaveMonthlyPresence={handleSaveMonthlyPresence}
@@ -489,7 +494,7 @@ const EmployeePage: React.FC = () => {
         <Popup
           isOpen={showPopup}
           onClose={handleClosePopup}
-          pageType="modify"
+          pageType={isCurrentMonth ? "dynamic" : "static"}
           selectedDay={selectedDay}
           selectedDayData={getDayData(getDayString(selectedDay))}
           handlePresenceChange={handlePresenceChange}

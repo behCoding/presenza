@@ -18,6 +18,9 @@ createRoot(document.getElementById("root")!).render(
       draggable
       pauseOnHover={false}
       theme="colored"
+      style={{
+        marginTop: 60,
+      }}
     />
   </StrictMode>
 );

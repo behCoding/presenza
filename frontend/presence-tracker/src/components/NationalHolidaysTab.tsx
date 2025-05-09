@@ -142,7 +142,7 @@ const NationalHolidaysTab = () => {
                 required
               />
             </div>
-            <div className="flex-1">
+            {/* <div className="flex-1">
               <label
                 className={`block text-sm font-medium mb-1 ${
                   isDark ? "text-gray-300" : "text-gray-700"
@@ -165,7 +165,7 @@ const NationalHolidaysTab = () => {
                 }`}
                 required
               />
-            </div>
+            </div> */}
             <button
               onClick={handleAddHoliday}
               className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-4 py-2 rounded hover:bg-blue-600 cursor-pointer self-end mb-0.5 transition-all duration-200 shadow-sm"

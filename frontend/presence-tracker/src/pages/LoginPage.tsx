@@ -6,14 +6,18 @@ import { toast } from "react-toastify";
 import AuthContext from "../context/AuthContext";
 import ThemeContext from "../context/ThemeContext";
 import { LoginUser } from "../api/loginApi";
-import type { LoginResponse } from "../types";
 import ForgotPasswordModal from "../components/ForgotPasswordModal";
 import { jwtDecode } from "jwt-decode";
+import { AxiosError } from "axios";
 
 type LoginInputs = {
   username: string;
   password: string;
 };
+
+interface ApiErrorResponse {
+  detail?: string;
+}
 
 const LoginPage: React.FC = () => {
   const { theme } = useContext(ThemeContext);
@@ -96,41 +100,67 @@ const LoginPage: React.FC = () => {
     }
   };
 
-  const handleLogin: SubmitHandler<LoginInputs> = (data) => {
-    toast
-      .promise(
-        LoginUser(data.username, data.password),
-        {
-          pending: "Logging in...",
-          success: "Login successful!",
-          error: "Login failed. Please check your credentials and try again.",
-        },
-        {
-          pauseOnFocusLoss: false,
-          pauseOnHover: false,
-          hideProgressBar: true,
-          autoClose: 1200,
-        }
-      )
-      .then((response: LoginResponse) => {
-        const { access_token, role, user_id } = response;
-        try {
-          const decodedToken = jwtDecode(access_token);
+  const handleLogin: SubmitHandler<LoginInputs> = async (data) => {
+    // Create initial loading toast
+    const toastId = toast.loading("Logging in...", {
+      pauseOnFocusLoss: false,
+      pauseOnHover: false,
+      hideProgressBar: true,
+    });
 
-          if (!decodedToken.exp) {
-            throw new Error("Token expiration not found");
-          }
+    try {
+      const response = await LoginUser(data.username, data.password);
+      const { access_token, role, user_id } = response;
 
-          login(access_token, role, user_id, new Date(decodedToken.exp * 1000));
-          navigate("/", { replace: true });
-        } catch (tokenError) {
-          console.error("Token decoding error:", tokenError);
-          toast.error("Invalid token received");
+      try {
+        const decodedToken = jwtDecode(access_token);
+
+        if (!decodedToken.exp) {
+          throw new Error("Token expiration not found");
         }
-      })
-      .catch((error) => {
-        console.error("Error logging in:", error);
+
+        login(access_token, role, user_id, new Date(decodedToken.exp * 1000));
+
+        toast.update(toastId, {
+          render: "Login successful!",
+          type: "success",
+          isLoading: false,
+          autoClose: 1000,
+        });
+
+        navigate("/", { replace: true });
+      } catch (tokenError) {
+        console.error("Token decoding error:", tokenError);
+        toast.update(toastId, {
+          render: "Invalid token received",
+          type: "error",
+          isLoading: false,
+          autoClose: 2000,
+        });
+      }
+    } catch (error: unknown) {
+      const axiosError = error as AxiosError<ApiErrorResponse>;
+
+      let errorMessage = "Login failed. Please try again.";
+
+      if (axiosError.response && axiosError.response.status === 401) {
+        errorMessage =
+          axiosError.response.data.detail || "Invalid username or password";
+      } else if (axiosError.message.includes("Network Error")) {
+        errorMessage = "Network error - please check your connection";
+      } else {
+        errorMessage = "Login failed. Please try again.";
+      }
+
+      toast.update(toastId, {
+        render: errorMessage,
+        type: "error",
+        isLoading: false,
+        autoClose: 2000,
       });
+
+      console.error("Login error:", error);
+    }
   };
 
   return (
@@ -185,6 +215,7 @@ const LoginPage: React.FC = () => {
               <input
                 type="text"
                 placeholder="Enter your email"
+                autoComplete="username"
                 {...register("username", {
                   required: true,
                   validate: (value) => validateEmail(value),
@@ -253,6 +284,7 @@ const LoginPage: React.FC = () => {
               <input
                 type={!showPassword ? "password" : "text"}
                 placeholder="Enter your password"
+                autoComplete="current-password"
                 {...register("password", { required: true })}
                 onFocus={() => {
                   setPasswordFocus(true);

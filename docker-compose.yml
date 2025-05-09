@@ -4,6 +4,8 @@ services:
   backend:
     build:
       context: ./backend
+    volumes:
+      - ./backend:/app 
     ports:
       - "8000:8000"
       #- "5678:5678"
@@ -21,6 +23,8 @@ services:
       dockerfile: Dockerfile
       args:
         VITE_API_URL: "/api"
+    volumes:
+      - ./frontend/presence-tracker:/app
     environment:
       - VITE_API_URL=/api
     depends_on:

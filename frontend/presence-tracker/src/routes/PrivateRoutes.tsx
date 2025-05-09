@@ -8,19 +8,17 @@ import { AppLayout } from "../components/layouts";
 
 export const PrivateRoutes: React.FC = () => {
   const { userRole } = useContext(AuthContext);
-  const token = localStorage.getItem("token")
+  const token = localStorage.getItem("token");
   const navigate = useNavigate();
 
   // Redirect immediately if not authenticated
   useEffect(() => {
     if (!token) {
-      console.log("Token")
       navigate("/login", { replace: true });
     }
   }, [token, navigate]);
 
   if (!token) {
-    console.log("Token")
     return null;
   }
 
